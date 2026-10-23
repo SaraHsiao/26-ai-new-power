@@ -99,7 +99,15 @@ nav a:hover{ transform:translateY(-2px) rotate(-1.2deg); text-decoration:none; }
 .row{ display:flex; align-items:baseline; gap:8px; padding:3.5px 0; font-size:.98rem; }
 .row span{ color:var(--ink-soft); flex:0 0 auto; }
 .row .dots{ flex:1 1 auto; border-bottom:2px dotted var(--line-soft); transform:translateY(-3px); }
-.row strong{ color:var(--ink); font-variant-numeric:tabular-nums; flex:0 0 auto; }
+.row strong{
+  color:var(--ink);
+  font-variant-numeric:tabular-nums;
+  flex:0 1 auto;
+  min-width:0;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  text-align:right;
+}
 
 .links{ margin:6px 0 0; padding-left:0; list-style:none; }
 .links li{ padding:3px 0; }
