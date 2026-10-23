@@ -96,3 +96,45 @@ python src/nn_model.py    # 訓練 MLP，產生訓練曲線、混淆矩陣、res
 - Fisher, R. A. (1936). The use of multiple measurements in taxonomic problems. *Annals of Eugenics*, 7(2), 179–188.
 - UCI Machine Learning Repository — Iris Data Set。
 - 本專案透過 `sklearn.datasets.load_iris` 取得資料後匯出為 `data/iris.csv`。
+
+---
+
+# AI4I 2020 預測性維護（Predictive Maintenance）
+
+對應 Issue：[#3 總覽](https://github.com/SaraHsiao/26-ai-new-power/issues/3)｜[#4 資料取得與 EDA](https://github.com/SaraHsiao/26-ai-new-power/issues/4)
+
+## 資料來源與授權
+
+- 資料集：**AI4I 2020 Predictive Maintenance Dataset**
+- 來源：UCI Machine Learning Repository（dataset 601）
+  <https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset>
+- 授權：**CC BY 4.0**
+- 檔案：`data/ai4i2020.csv`（10,000 筆 × 14 欄），雜湊與下載資訊記錄於 `data/PROVENANCE.json`
+- 引用：Matzka, S. (2020). *AI4I 2020 Predictive Maintenance Dataset*. UCI Machine Learning Repository. <https://doi.org/10.24432/C5HS5C>
+
+## 執行方式
+
+```bash
+python src/ai4i_data_prep.py            # 資料不存在時自動下載，並產生 EDA 報告與圖表
+python src/ai4i_data_prep.py --force    # 強制重新下載
+python -m pytest tests -q               # 執行測試
+```
+
+## 目前進度
+
+- [x] #4 資料取得、保存與 EDA
+- [ ] #5 前處理與特徵工程 Pipeline
+- [ ] #6 評估協定、指標與不平衡策略
+- [ ] #7 模型建立、比較與校準
+- [ ] #8 評估視覺化、可解釋性與誤判分析
+- [ ] #9 穩健性檢查：時間切分對照
+- [ ] #10 報告撰寫與交付整備
+
+## EDA 重點
+
+- 10,000 筆、14 欄、**0 缺失值、0 重複列**；`UDI` 嚴格遞增且唯一。
+- 故障 **339 筆（3.39%）**，屬極度不平衡；全猜正常即有 **96.61%** accuracy。
+- 五種失效模式：HDF 115、OSF 98、PWF 95、TWF 46、RNF 19。
+- **標籤並非等價**：9 筆有故障但五旗標全 0；18 筆旗標為 1 但 `Machine failure` = 0。
+- `Type` 故障率：L 3.09%、M 3.38%、H 4.89%，具預測價值。
+- 完整內容見 [`docs/eda_report_ai4i.md`](docs/eda_report_ai4i.md)。
