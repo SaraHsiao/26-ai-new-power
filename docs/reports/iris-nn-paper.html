@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>以主成分分析視覺化與多層感知器分類 Iris 資料集</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>以主成分分析視覺化與多層感知器分類 Iris 資料集</h1>
+<p><strong>A Study on Iris Dataset Classification: PCA-Based Visualization and Multi-Layer Perceptron</strong></p>
+<hr>
+<h2>摘要</h2>
+<p>本研究以 Fisher（1936）提出的 Iris 資料集為對象，完成一個完整的監督式分類流程。首先將資料保存為專案內的 CSV 檔案，並進行缺失值、重複值、離群值與類別平衡等基本檢查；接著以主成分分析（PCA）將四個量測特徵投影到三維空間，視覺化三個物種的分群結構；最後建立一個多層感知器（Multi-Layer Perceptron, MLP）類神經網路模型，以 80/20 分層抽樣切分訓練與測試資料，並以五折交叉驗證確認模型穩定性。</p>
+<p>實驗結果顯示，前三的主成分共可解釋 <strong>99.48%</strong> 的總變異量，且三維散佈圖中 <em>setosa</em> 與另外兩類明顯分離，<em>versicolor</em> 與 <em>virginica</em> 則存在部分重疊。MLP 模型在訓練集五折交叉驗證的正確率為 <strong>95.83% ± 4.56%</strong>，在 30 筆測試資料上達到 <strong>96.67%</strong> 的正確率，唯一誤判為一筆 <em>versicolor</em> 被預測成 <em>virginica</em>。結果顯示，即使僅使用極少量的資料與一個淺層網路，Iris 這類低維度、類別分離度高的資料仍可被有效分類；誤判主要來自兩個生物學上本來就相近的類別之邊界樣本。</p>
+<p><strong>關鍵詞</strong>：Iris 資料集、主成分分析、類神經網路、多層感知器、混淆矩陣</p>
+<hr>
+<h2>1. 緒論</h2>
+<h3>1.1 研究動機</h3>
+<p>Iris 資料集是機器學習領域最經典的入門資料集之一，常用於驗證分類演算法與視覺化方法。它同時具備「特徵維度低」、「類別平衡」、「部份類別線性不可分」等特性，因此非常適合作為理解完整分析流程的教材：從資料檢查、降維視覺化，到模型訓練與評估，都能在單一資料集上具體呈現。</p>
+<h3>1.2 研究問題</h3>
+<p>本研究欲回答三個問題：</p>
+<ol>
+<li>Iris 的四個特徵中，是否存在能以少數維度保留大部分資訊的結構？</li>
+<li>以 PCA 投影到三維後，三個物種是否呈現可辨識的分群？</li>
+<li>一個簡單的類神經網路，在此資料集上能達到什麼樣的分類表現？錯誤主要發生在哪裡？</li>
+</ol>
+<h3>1.3 研究流程</h3>
+<p>資料取得與保存 → 資料理解與探索 → PCA 三維視覺化 → MLP 模型訓練與評估 → 結果討論與小論文撰寫。</p>
+<hr>
+<h2>2. 資料集描述</h2>
+<h3>2.1 資料來源</h3>
+<p>Iris 資料集由英國統計學家 Ronald A. Fisher 於 1936 年發表，原始量測由 Edgar Anderson 在美國紐約與加拿大加斯佩半島採集。本研究透過 scikit-learn 的 <code>load_iris</code> 取得資料（內容與 UCI Machine Learning Repository 上的 Iris 版本一致），並匯出為 <code>data/iris.csv</code>，使後續分析不依賴套件內建資料，確保可重現性。</p>
+<h3>2.2 欄位與特徵</h3>
+<table>
+<thead><tr><th>欄位</th><th>型別</th><th>說明</th><th>單位</th></tr></thead>
+<tbody>
+<tr><td><code>sepal_length</code></td><td>數值</td><td>花萼長度</td><td>cm</td></tr>
+<tr><td><code>sepal_width</code></td><td>數值</td><td>花萼寬度</td><td>cm</td></tr>
+<tr><td><code>petal_length</code></td><td>數值</td><td>花瓣長度</td><td>cm</td></tr>
+<tr><td><code>petal_width</code></td><td>數值</td><td>花瓣寬度</td><td>cm</td></tr>
+<tr><td><code>species</code></td><td>類別</td><td>物種標籤（分類目標）</td><td>—</td></tr>
+</tbody></table>
+<ul>
+<li><strong>特徵（features）</strong>：4 個連續數值欄位，即花萼與花瓣的長寬。</li>
+<li><strong>分類（target / classes）</strong>：<code>species</code> 共有三類——<code>setosa</code>、<code>versicolor</code>、<code>virginica</code>，每類 50 筆，共 150 筆，屬完全平衡資料集。</li>
+</ul>
+<h3>2.3 基本檢查結果</h3>
+<p>完整內容見 <a href="eda_report.md"><code>docs/eda_report.md</code></a>，重點摘要如下：</p>
+<table>
+<thead><tr><th>檢查項目</th><th>結果</th></tr></thead>
+<tbody>
+<tr><td>資料筆數 × 欄位數</td><td>150 × 5</td></tr>
+<tr><td>缺失值</td><td>0</td></tr>
+<tr><td>完全重複列</td><td>1（保留，因屬不同觀測個體量到相同數值）</td></tr>
+<tr><td>類別分布</td><td>三類各 50 筆（33.3%）</td></tr>
+<tr><td>離群值（IQR 準則）</td><td>僅 <code>sepal_width</code> 有 4 筆超出 [2.05, 4.05]，其餘特徵為 0</td></tr>
+<tr><td>特徵尺度</td><td>花瓣長度範圍 1.0–6.9 cm，花萼寬度僅 2.0–4.4 cm，尺度差異明顯 → 需標準化</td></tr>
+</tbody></table>
+<p>敘述統計：</p>
+<table>
+<thead><tr><th>特徵</th><th>平均</th><th>標準差</th><th>最小值</th><th>中位數</th><th>最大值</th></tr></thead>
+<tbody>
+<tr><td>sepal_length</td><td>5.843</td><td>0.828</td><td>4.30</td><td>5.80</td><td>7.90</td></tr>
+<tr><td>sepal_width</td><td>3.057</td><td>0.436</td><td>2.00</td><td>3.00</td><td>4.40</td></tr>
+<tr><td>petal_length</td><td>3.758</td><td>1.765</td><td>1.00</td><td>4.35</td><td>6.90</td></tr>
+<tr><td>petal_width</td><td>1.199</td><td>0.762</td><td>0.10</td><td>1.30</td><td>2.50</td></tr>
+</tbody></table>
+<p>相關係數方面，<code>petal_length</code> 與 <code>petal_width</code> 的 Pearson 相關係數高達 <strong>0.963</strong>，<code>sepal_length</code> 與 <code>petal_length</code> 亦達 <strong>0.872</strong>；相對地 <code>sepal_width</code> 與其他特徵呈弱負相關（−0.118 ~ −0.428）。高度相關意味著特徵間存在冗餘，這也是後續以 PCA 降維的主要依據。</p>
+<p><img src="../figures/eda_boxplots.png" alt="EDA 箱型圖"></p>
+<p>*圖 1：各特徵於三個類別的箱型圖。花瓣長度與花瓣寬度在 <em>setosa</em> 與其他兩類之間幾乎沒有重疊。*</p>
+<p><img src="../figures/eda_distributions.png" alt="EDA 分布圖"></p>
+<p><em>圖 2：各特徵依類別的直方圖。</em></p>
+<hr>
+<h2>3. 研究方法</h2>
+<h3>3.1 前處理</h3>
+<ol>
+<li><strong>特徵標準化</strong>：以 <code>StandardScaler</code> 將每個特徵轉為平均值 0、標準差 1。標準化參數僅以訓練集估計，再套用到測試集，避免資料洩漏。PCA 與 MLP 皆使用標準化後的特徵。</li>
+<li><strong>資料切分</strong>：採分層抽樣（stratified sampling），訓練集 120 筆、測試集 30 筆（80/20），<code>random_state = 42</code> 以確保可重現。</li>
+<li><strong>類別標籤</strong>：scikit-learn 內部以整數 0/1/2 編碼，評估時再映射回物種名稱。</li>
+</ol>
+<h3>3.2 主成分分析（PCA）</h3>
+<p>PCA 為一種線性降維方法，尋找資料變異量最大的正交方向（主成分），將原始 \(d\) 維特徵投影到 \(k\) 維子空間。轉換式為：</p>
+<p>\[ Z = XW,\quad W = [w_1, w_2, \dots, w_k] \]</p>
+<p>其中 \(w_i\) 為共變異數矩陣的第 \(i\) 個特徵向量。本研究保留前三個主成分（\(k=3\)）以便以 3D 散佈圖呈現，並檢視各主成分的解釋變異量比例：</p>
+<p>\[ \text{EVR}_i = \frac{\lambda_i}{\sum_{j=1}^{d}\lambda_j} \]</p>
+<h3>3.3 多層感知器（MLP）</h3>
+<p>MLP 為前饋式類神經網路，每個神經元計算 \(a = f(\mathbf{w}^\top \mathbf{x} + b)\)，其中 \(f\) 為非線性活化函數。本研究採用兩層隱藏層架構：</p>
+<ul>
+<li>輸入層：4 個節點（對應 4 個特徵）</li>
+<li>隱藏層：32 → 16 個節點，活化函數 ReLU</li>
+<li>輸出層：3 個節點，對應三個類別（softmax 交叉熵損失）</li>
+<li>優化器：Adam，初始學習率 0.001，L2 正則化係數 \(\alpha = 10^{-4}\)</li>
+<li>批次大小 16，最大 600 epochs，並啟用 early stopping（驗證比例 15%、連續 30 個 epoch 未改善即停止）</li>
+</ul>
+<p>採用 early stopping 除了避免過擬合，也讓訓練過程的驗證正確率可被記錄下來，用於繪製訓練曲線。</p>
+<hr>
+<h2>4. 實驗設計</h2>
+<table>
+<thead><tr><th>項目</th><th>設定</th></tr></thead>
+<tbody>
+<tr><td>訓練 / 測試</td><td>120 / 30（80/20，分層抽樣）</td></tr>
+<tr><td>交叉驗證</td><td>Stratified 5-fold（僅在訓練集上）</td></tr>
+<tr><td>特徵前處理</td><td>StandardScaler（以訓練集 fit）</td></tr>
+<tr><td>模型</td><td>MLPClassifier(32, 16), ReLU, Adam</td></tr>
+<tr><td>學習率 / L2</td><td>1e-3 / 1e-4</td></tr>
+<tr><td>Batch size</td><td>16</td></tr>
+<tr><td>最大 epoch</td><td>600（early stopping，實際 57 epochs 停止）</td></tr>
+<tr><td>隨機種子</td><td>42</td></tr>
+<tr><td>評估指標</td><td>Accuracy、Precision、Recall、F1-score、Confusion Matrix</td></tr>
+</tbody></table>
+<p>程式使用 Python 3.12、scikit-learn 1.9.0、pandas 3.0.5、matplotlib 3.11.2。</p>
+<hr>
+<h2>5. 結果與討論</h2>
+<h3>5.1 PCA 三維特徵分布</h3>
+<table>
+<thead><tr><th>主成分</th><th>解釋變異量</th><th>累積解釋變異量</th></tr></thead>
+<tbody>
+<tr><td>PC1</td><td>72.96%</td><td>72.96%</td></tr>
+<tr><td>PC2</td><td>22.85%</td><td>95.81%</td></tr>
+<tr><td>PC3</td><td>3.67%</td><td>99.48%</td></tr>
+<tr><td>PC4</td><td>0.52%</td><td>100.00%</td></tr>
+</tbody></table>
+<p>前兩個主成分即解釋了 95.81% 的變異量，前三個合計 99.48%，說明原本 4 維特徵幾乎可被 3 維完整代表。PC1 的荷重向量約為 (0.52, −0.27, 0.58, 0.56)，主要由花瓣長度、花瓣寬度與花萼長度同向組成，可理解為「花朵整體尺寸」；PC2 則以花萼寬度（0.92）為主，代表「花萼寬窄」。</p>
+<p><img src="../figures/pca_3d.png" alt="PCA 3D 分布"></p>
+<p><em>圖 3：Iris 資料集前三個主成分的 3D 散佈圖（括號內為該主成分的解釋變異量比例）。</em></p>
+<p>由圖 3 可見：</p>
+<ul>
+<li><strong>setosa</strong>（藍色圓點）在 PC1 上明顯偏向低值，與其他兩類完全分離，形成獨立的群。</li>
+<li><strong>versicolor</strong>（橘色方塊）位於中間，<strong>virginica</strong>（綠色三角）偏向 PC1 高值端；兩者在 PC1–PC2 平面上相鄰，邊界處有樣本交錯。</li>
+<li>即使加上 PC3，versicolor 與 virginica 仍有少量重疊，表示這兩類在量測特徵上本來就較接近，無法以線性投影完全分開。</li>
+</ul>
+<p><img src="../figures/pca_variance.png" alt="PCA 解釋變異量"></p>
+<p><em>圖 4：各主成分解釋變異量與累積解釋變異量。</em></p>
+<h3>5.2 模型訓練過程</h3>
+<p>模型在第 57 個 epoch 因 early stopping 停止。訓練損失在前期快速下降，之後趨於平緩；驗證集正確率在前 20 個 epoch 內即達到 0.9 以上並維持穩定，顯示此網路容量對 Iris 而言相當充足，且沒有明顯過擬合。</p>
+<p><img src="../figures/nn_training_curves.png" alt="訓練曲線"></p>
+<p><em>圖 5：左為訓練損失曲線，右為驗證集正確率曲線（虛線為最終測試集正確率）。</em></p>
+<h3>5.3 分類表現</h3>
+<table>
+<thead><tr><th>資料集</th><th>Accuracy</th></tr></thead>
+<tbody>
+<tr><td>訓練集 5-fold CV</td><td>95.83% ± 4.56%</td></tr>
+<tr><td>測試集（30 筆）</td><td><strong>96.67%</strong>（29/30）</td></tr>
+</tbody></table>
+<p>各類別指標（測試集）：</p>
+<table>
+<thead><tr><th>類別</th><th>Precision</th><th>Recall</th><th>F1-score</th><th>樣本數</th></tr></thead>
+<tbody>
+<tr><td>setosa</td><td>1.000</td><td>1.000</td><td>1.000</td><td>10</td></tr>
+<tr><td>versicolor</td><td>1.000</td><td>0.900</td><td>0.947</td><td>10</td></tr>
+<tr><td>virginica</td><td>0.909</td><td>1.000</td><td>0.952</td><td>10</td></tr>
+<tr><td><strong>Macro avg</strong></td><td>0.970</td><td>0.967</td><td><strong>0.967</strong></td><td>30</td></tr>
+<tr><td><strong>Weighted avg</strong></td><td>0.970</td><td>0.967</td><td>0.967</td><td>30</td></tr>
+</tbody></table>
+<p><img src="../figures/nn_confusion_matrix.png" alt="混淆矩陣"></p>
+<p><em>圖 6：測試集混淆矩陣。</em></p>
+<p><img src="../figures/nn_f1_scores.png" alt="各類別 F1"></p>
+<p><em>圖 7：各類別 F1-score。</em></p>
+<h3>5.4 錯誤分析</h3>
+<p>30 筆測試資料中僅有 1 筆誤判：一筆真實標籤為 <strong>versicolor</strong> 的樣本被預測為 <strong>virginica</strong>，使 versicolor 的 recall 降至 0.9、virginica 的 precision 降至 0.909。此結果與 5.1 節的視覺化觀察一致——錯誤發生在 versicolor 與 virginica 的重疊區域，而非 setosa。</p>
+<p>值得注意的是，這兩類在生物學上親緣關係較近，花瓣尺寸的分布本身存在重疊；即使是文獻上的線性模型（如 Fisher 的線性判別分析）也常在這一對類別上出現 1–3 筆誤差。因此 96.67% 的表現屬於此資料集的合理水準。</p>
+<p>五折交叉驗證的標準差 4.56% 相對較大，主因是每折驗證集僅 24 筆，單一錯誤即造成約 4% 的波動；這也提醒我們在小資料集上不宜只看單一分割的結果。</p>
+<h3>5.5 討論與限制</h3>
+<ol>
+<li><strong>PCA 的角色</strong>：PCA 只作為視覺化與理解結構之用，分類模型仍使用標準化後的四個原始特徵，以避免降維造成的資訊損失（PC3 之後僅剩 0.52% 變異量，影響有限，但仍非必要）。</li>
+<li><strong>模型容量</strong>：Iris 僅 150 筆，兩層隱藏層已明顯過剩。實驗中若加大網路或延長訓練，驗證正確率並未提升，反而增加變異。</li>
+<li><strong>資料量限制</strong>：測試集只有 30 筆，單一誤判即改變 3.3 個百分點，指標的置信區間較寬。</li>
+<li><strong>超參數選擇</strong>：本研究未進行系統性網格搜尋，超參數依常見慣例設定；但因資料簡單，模型對此並不敏感。</li>
+</ol>
+<hr>
+<h2>6. 結論與未來改進</h2>
+<h3>6.1 結論</h3>
+<ol>
+<li>Iris 的四維特徵具有高度相關性，前三個主成分即可保留 99.48% 的變異量；二維已達 95.81%。</li>
+<li>PCA 三維散佈圖清楚呈現 setosa 的獨立分群，以及 versicolor 與 virginica 的部分重疊，與後續模型誤判位置相符。</li>
+<li>兩層 MLP 在測試集達到 96.67% 正確率、macro F1 0.967，五折交叉驗證 95.83% ± 4.56%，符合本資料集的預期水準。</li>
+</ol>
+<h3>6.2 未來改進</h3>
+<ul>
+<li>以<strong>重複分層 K 折交叉驗證</strong>（repeated stratified k-fold）取代單次切分，取得更穩定的性能估計與信賴區間。</li>
+<li>對 versicolor / virginica 邊界樣本進行<strong>針對性分析</strong>（如 margin、預測機率），或比較 SVM、Random Forest、KNN 等模型。</li>
+<li>進行<strong>超參數搜尋</strong>（GridSearchCV / Optuna），並加入 learning curve 觀察資料量對表現的影響。</li>
+<li>使用 <strong>Keras / PyTorch</strong> 實作並比較不同優化器、正則化與 dropout 的效果，同時輸出更細緻的訓練日誌。</li>
+</ul>
+<hr>
+<h2>參考文獻</h2>
+<ol>
+<li>Fisher, R. A. (1936). The use of multiple measurements in taxonomic problems. <em>Annals of Eugenics</em>, 7(2), 179–188.</li>
+<li>Anderson, E. (1935). The irises of the Gaspé Peninsula. <em>Bulletin of the American Iris Society</em>, 59, 2–5.</li>
+<li>Dua, D., &amp; Graff, C. (2019). UCI Machine Learning Repository: Iris Data Set. University of California, Irvine.</li>
+<li>Jolliffe, I. T. (2002). <em>Principal Component Analysis</em> (2nd ed.). Springer.</li>
+<li>Kingma, D. P., &amp; Ba, J. (2015). Adam: A Method for Stochastic Optimization. <em>ICLR 2015</em>.</li>
+<li>Pedregosa, F. et al. (2011). Scikit-learn: Machine Learning in Python. <em>JMLR</em>, 12, 2825–2830.</li>
+<li>Goodfellow, I., Bengio, Y., &amp; Courville, A. (2016). <em>Deep Learning</em>. MIT Press.</li>
+</ol>
+<hr>
+<h2>附錄：專案結構</h2>
+<pre><code>26-ai-new-power/
+├─ data/iris.csv              # 原始資料（150 筆）
+├─ src/
+│  ├─ utils.py                # 共用路徑與工具
+│  ├─ data_prep.py            # 資料匯出、EDA、圖表
+│  ├─ pca_3d.py               # PCA 3D 視覺化
+│  ├─ nn_model.py             # MLP 訓練與評估
+│  └─ run_all.py              # 一鍵重現全部結果
+├─ figures/                   # 所有輸出圖表
+├─ results/                   # PCA 與模型評估的 JSON 結果
+├─ docs/
+│  ├─ eda_report.md           # 自動產生的探索報告
+│  └─ iris-nn-paper.md        # 本小論文
+└─ README.md</code></pre>
+</main>
+</body>
+</html>

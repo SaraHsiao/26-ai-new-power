@@ -1,0 +1,77 @@
+{
+  "random_split": {
+    "pr_auc": 0.900845290940347,
+    "recall": 0.8529411764705882,
+    "precision": 0.8787878787878788,
+    "f1": 0.8656716417910447,
+    "threshold": 0.08483391169151215
+  },
+  "time_split": {
+    "name": "time_split_rf",
+    "threshold": 0.08483391169151215,
+    "n": 2000,
+    "n_pos": 39,
+    "prevalence": 0.0195,
+    "tp": 28,
+    "fp": 12,
+    "fn": 11,
+    "tn": 1949,
+    "precision": 0.7,
+    "recall": 0.717948717948718,
+    "f1": 0.708860759493671,
+    "accuracy": 0.9885,
+    "mcc": 0.7030544878485562,
+    "pr_auc": 0.808054165272247,
+    "lift": 35.8974358974359,
+    "primary_metric": "pr_auc"
+  },
+  "differences": {
+    "pr_auc_diff": -0.0927911256681,
+    "recall_diff": -0.13499245852187025
+  },
+  "distribution": {
+    "Type": {
+      "train": {
+        "L": 0.602,
+        "M": 0.30025,
+        "H": 0.09775
+      },
+      "test": {
+        "L": 0.592,
+        "M": 0.2975,
+        "H": 0.1105
+      }
+    },
+    "modes": {
+      "TWF": {
+        "train_rate": 0.0045,
+        "test_rate": 0.005
+      },
+      "HDF": {
+        "train_rate": 0.014375,
+        "test_rate": 0.0
+      },
+      "PWF": {
+        "train_rate": 0.010625,
+        "test_rate": 0.005
+      },
+      "OSF": {
+        "train_rate": 0.009625,
+        "test_rate": 0.0105
+      },
+      "RNF": {
+        "train_rate": 0.002375,
+        "test_rate": 0.0
+      }
+    },
+    "failure_rate": {
+      "train": 0.0375,
+      "test": 0.0195
+    },
+    "n": {
+      "train": 8000,
+      "test": 2000
+    }
+  },
+  "verdict": "穩定：PR-AUC 差異 <= 0.10，時間切分表現與隨機切分相近"
+}

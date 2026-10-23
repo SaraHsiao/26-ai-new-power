@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iris 資料集探索報告</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>Iris 資料集探索報告</h1>
+<blockquote><p>本檔案由 <code>src/data_prep.py</code> 自動產生。</p></blockquote>
+<h2>1. 資料形狀與型別</h2>
+<ul>
+<li>資料筆數：<strong>150</strong></li>
+<li>欄位數：<strong>5</strong>（4 個特徵 + 1 個類別標籤）</li>
+<li>特徵欄位：<code>sepal_length</code>、<code>sepal_width</code>、<code>petal_length</code>、<code>petal_width</code></li>
+<li>類別欄位：<code>species</code></li>
+</ul>
+<table>
+<thead><tr><th>欄位</th><th>型別</th><th>非空值數</th></tr></thead>
+<tbody>
+<tr><td>sepal_length</td><td>float64</td><td>150</td></tr>
+<tr><td>sepal_width</td><td>float64</td><td>150</td></tr>
+<tr><td>petal_length</td><td>float64</td><td>150</td></tr>
+<tr><td>petal_width</td><td>float64</td><td>150</td></tr>
+<tr><td>species</td><td>str</td><td>150</td></tr>
+</tbody></table>
+<h2>2. 缺失值與重複值</h2>
+<ul>
+<li>缺失值總數：<strong>0</strong></li>
+<li>完全重複的資料列：<strong>1</strong></li>
+</ul>
+<blockquote><p>重複列對應的是不同觀測個體剛好量到相同數值，因此保留不刪除。</p></blockquote>
+<h2>3. 敘述統計</h2>
+<table>
+<thead><tr><th>特徵</th><th>count</th><th>mean</th><th>std</th><th>min</th><th>25%</th><th>50%</th><th>75%</th><th>max</th><th>range</th></tr></thead>
+<tbody>
+<tr><td>sepal_length</td><td>150.000</td><td>5.843</td><td>0.828</td><td>4.300</td><td>5.100</td><td>5.800</td><td>6.400</td><td>7.900</td><td>3.600</td></tr>
+<tr><td>sepal_width</td><td>150.000</td><td>3.057</td><td>0.436</td><td>2.000</td><td>2.800</td><td>3.000</td><td>3.300</td><td>4.400</td><td>2.400</td></tr>
+<tr><td>petal_length</td><td>150.000</td><td>3.758</td><td>1.765</td><td>1.000</td><td>1.600</td><td>4.350</td><td>5.100</td><td>6.900</td><td>5.900</td></tr>
+<tr><td>petal_width</td><td>150.000</td><td>1.199</td><td>0.762</td><td>0.100</td><td>0.300</td><td>1.300</td><td>1.800</td><td>2.500</td><td>2.400</td></tr>
+</tbody></table>
+<h2>4. 類別分布</h2>
+<table>
+<thead><tr><th>類別</th><th>筆數</th><th>比例</th></tr></thead>
+<tbody>
+<tr><td>setosa</td><td>50</td><td>33.3%</td></tr>
+<tr><td>versicolor</td><td>50</td><td>33.3%</td></tr>
+<tr><td>virginica</td><td>50</td><td>33.3%</td></tr>
+</tbody></table>
+<p>三類別各 50 筆，屬<strong>完全平衡</strong>資料集。</p>
+<h2>5. 離群值檢查（IQR 準則）</h2>
+<table>
+<thead><tr><th>特徵</th><th>Q1</th><th>Q3</th><th>IQR</th><th>下界</th><th>上界</th><th>離群值數</th></tr></thead>
+<tbody>
+<tr><td>sepal_length</td><td>5.10</td><td>6.40</td><td>1.30</td><td>3.15</td><td>8.35</td><td>0</td></tr>
+<tr><td>sepal_width</td><td>2.80</td><td>3.30</td><td>0.50</td><td>2.05</td><td>4.05</td><td>4</td></tr>
+<tr><td>petal_length</td><td>1.60</td><td>5.10</td><td>3.50</td><td>-3.65</td><td>10.35</td><td>0</td></tr>
+<tr><td>petal_width</td><td>0.30</td><td>1.80</td><td>1.50</td><td>-1.95</td><td>4.05</td><td>0</td></tr>
+</tbody></table>
+<h2>6. 各特徵與類別的關係（分組平均）</h2>
+<table>
+<thead><tr><th>species</th><th>sepal_length</th><th>sepal_width</th><th>petal_length</th><th>petal_width</th></tr></thead>
+<tbody>
+<tr><td>setosa</td><td>5.006</td><td>3.428</td><td>1.462</td><td>0.246</td></tr>
+<tr><td>versicolor</td><td>5.936</td><td>2.770</td><td>4.260</td><td>1.326</td></tr>
+<tr><td>virginica</td><td>6.588</td><td>2.974</td><td>5.552</td><td>2.026</td></tr>
+</tbody></table>
+<h2>7. 相關係數矩陣（Pearson）</h2>
+<table>
+<thead><tr><th>特徵</th><th>sepal_length</th><th>sepal_width</th><th>petal_length</th><th>petal_width</th></tr></thead>
+<tbody>
+<tr><td>sepal_length</td><td>1.000</td><td>-0.118</td><td>0.872</td><td>0.818</td></tr>
+<tr><td>sepal_width</td><td>-0.118</td><td>1.000</td><td>-0.428</td><td>-0.366</td></tr>
+<tr><td>petal_length</td><td>0.872</td><td>-0.428</td><td>1.000</td><td>0.963</td></tr>
+<tr><td>petal_width</td><td>0.818</td><td>-0.366</td><td>0.963</td><td>1.000</td></tr>
+</tbody></table>
+</main>
+</body>
+</html>

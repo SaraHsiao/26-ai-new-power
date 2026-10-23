@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4I 2020 特徵工程說明</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>AI4I 2020 特徵工程說明</h1>
+<p>本文件說明 <code>src/ai4i_features.py</code> 的特徵設計與<strong>洩漏防護政策</strong>。程式與文件不一致時，以程式為準，並請補測試。</p>
+<h2>1. 欄位取捨</h2>
+<p>原始資料 14 欄，只有 <strong>6 欄</strong> 進入模型：</p>
+<table>
+<thead><tr><th>原始欄位</th><th>用途</th><th>理由</th></tr></thead>
+<tbody>
+<tr><td><code>Type</code></td><td>特徵（one-hot）</td><td>產品等級，與故障率相關（L 3.92% / M 2.77% / H 2.09%）</td></tr>
+<tr><td><code>Air temperature [K]</code></td><td>特徵</td><td>環境溫度</td></tr>
+<tr><td><code>Process temperature [K]</code></td><td>特徵</td><td>製程溫度</td></tr>
+<tr><td><code>Rotational speed [rpm]</code></td><td>特徵</td><td>轉速</td></tr>
+<tr><td><code>Torque [Nm]</code></td><td>特徵</td><td>扭矩</td></tr>
+<tr><td><code>Tool wear [min]</code></td><td>特徵</td><td>刀具累積磨耗</td></tr>
+<tr><td><code>UDI</code></td><td><strong>排除</strong></td><td>流水號，無物理意義（僅供時間切分使用）</td></tr>
+<tr><td><code>Product ID</code></td><td><strong>排除</strong></td><td>首碼與 <code>Type</code> 完全重複</td></tr>
+<tr><td><code>Machine failure</code></td><td><strong>目標</strong></td><td>預測目標</td></tr>
+<tr><td><code>TWF</code> / <code>HDF</code> / <code>PWF</code> / <code>OSF</code> / <code>RNF</code></td><td><strong>排除</strong></td><td>直接組成答案，屬標籤洩漏</td></tr>
+</tbody></table>
+<h3>洩漏防護（不可繞過）</h3>
+<p><code>assert_no_leakage()</code> 會在以下時機檢查並 raise <code>ValueError</code>：</p>
+<ol>
+<li><code>load_dataset()</code> 產生 <code>X</code> 時</li>
+<li><code>add_features()</code> 收到含洩漏欄位的 DataFrame 時</li>
+</ol>
+<p>被擋下的欄位定義在 <code>FORBIDDEN_IN_X = ID_COLUMNS + LEAKAGE_COLUMNS + [TARGET]</code>。 這是<strong>程式化保護</strong>，不依賴人工檢查；對應測試為 <code>test_assert_no_leakage_rejects_forbidden_columns</code>（8 個參數化案例）。</p>
+<blockquote><p>補充：EDA 發現 <code>Machine failure</code> 與 <code>OR(五旗標)</code> 有 27 筆不一致（9 筆未分類故障、18 筆旗標與標籤衝突）， 因此更不能用旗標推導標籤，也不適合當特徵。</p></blockquote>
+<h2>2. 工程特徵</h2>
+<table>
+<thead><tr><th>特徵</th><th>公式</th><th>對應物理機制</th></tr></thead>
+<tbody>
+<tr><td><code>Temp diff [K]</code></td><td><code>Process temperature − Air temperature</code></td><td>HDF（散熱失效）：溫差 &lt; 8.6 K 且轉速 &lt; 1380 rpm</td></tr>
+<tr><td><code>Power [W]</code></td><td><code>Torque × 2π × RPM / 60</code></td><td>PWF（電力失效）：功率落在 3,500–9,000 W 之外</td></tr>
+<tr><td><code>Torque x Tool wear</code></td><td><code>Torque × Tool wear</code></td><td>OSF（應變超限）：扭矩與磨耗的乘積過高</td></tr>
+</tbody></table>
+<p>EDA 已驗證的方向性：</p>
+<ul>
+<li>HDF 樣本平均溫差 8.23 K，其餘 10.02 K</li>
+<li>PWF 樣本平均功率 7,252 W，其餘 6,270 W</li>
+<li>OSF 樣本 <code>Torque × Tool wear</code> 平均 12,067，其餘 4,238</li>
+<li>TWF 樣本平均磨耗 216.4 min，其餘 107.4 min</li>
+</ul>
+<h2>3. 類別編碼</h2>
+<p><code>Type</code> 以 one-hot 編碼，類別順序固定為 <code>["H", "L", "M"]</code>，輸出欄名為 <code>Type_H</code>、<code>Type_L</code>、<code>Type_M</code>，確保跨次執行欄位順序一致。 <code>OneHotEncoder(handle_unknown="ignore")</code> 讓未見過的類別（例如推論時出現 <code>XL</code>） 不會造成錯誤，該列會是 all-zero。</p>
+<h2>4. 標準化</h2>
+<ul>
+<li>數值區塊（5 個感測 + 3 個工程特徵）使用 <code>StandardScaler</code>。</li>
+<li>one-hot 欄位<strong>不標準化</strong>（保持 0/1）。</li>
+<li><code>build_preprocessor(scale=False)</code> 可關閉標準化，供樹模型使用。</li>
+<li>標準化參數只在訓練資料上 <code>fit</code>，測試資料僅 <code>transform</code>；</li>
+</ul>
+<p>對應測試 <code>test_preprocessor_fit_on_train_does_not_see_test</code>。</p>
+<h2>5. 共線性</h2>
+<p><code>Power</code> 與 <code>Torque</code> 的相關係數為 <strong>0.979</strong>、與轉速為 <strong>−0.806</strong>（<code>Power</code> 本身就是兩者的函數）。 線性模型（Logistic Regression）對此敏感，必要時可移除：</p>
+<pre><code>prep = build_preprocessor(drop_columns=[&quot;Power [W]&quot;])</code></pre>
+<p>樹模型通常不受影響，預設保留。是否移除留待 #7 以 CV 結果決定。</p>
+<h2>6. 使用方式</h2>
+<pre><code>from ai4i_features import load_dataset, make_pipeline, get_feature_names
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+
+X, y = load_dataset()
+
+pipe = make_pipeline(LogisticRegression(max_iter=1000, class_weight=&quot;balanced&quot;))
+scores = cross_val_score(pipe, X, y, cv=5, scoring=&quot;average_precision&quot;)
+
+print(get_feature_names())   # 11 個欄位：8 數值 + 3 one-hot</code></pre>
+<p>Pipeline 內含特徵工程、編碼與標準化，因此可直接餵給 <code>cross_val_score</code>， 不會發生「先全資料標準化再切分」的洩漏。</p>
+<h2>7. 輸出欄位清單（共 11 欄）</h2>
+<table>
+<thead><tr><th>#</th><th>欄位</th><th>類型</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>Air temperature [K]</code></td><td>數值（標準化）</td></tr>
+<tr><td>2</td><td><code>Process temperature [K]</code></td><td>數值（標準化）</td></tr>
+<tr><td>3</td><td><code>Rotational speed [rpm]</code></td><td>數值（標準化）</td></tr>
+<tr><td>4</td><td><code>Torque [Nm]</code></td><td>數值（標準化）</td></tr>
+<tr><td>5</td><td><code>Tool wear [min]</code></td><td>數值（標準化）</td></tr>
+<tr><td>6</td><td><code>Temp diff [K]</code></td><td>工程特徵（標準化）</td></tr>
+<tr><td>7</td><td><code>Power [W]</code></td><td>工程特徵（標準化）</td></tr>
+<tr><td>8</td><td><code>Torque x Tool wear</code></td><td>工程特徵（標準化）</td></tr>
+<tr><td>9</td><td><code>Type_H</code></td><td>one-hot</td></tr>
+<tr><td>10</td><td><code>Type_L</code></td><td>one-hot</td></tr>
+<tr><td>11</td><td><code>Type_M</code></td><td>one-hot</td></tr>
+</tbody></table>
+</main>
+</body>
+</html>

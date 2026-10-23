@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iris × AI4I 2020 - 靜態結果網站</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.layout{max-width:960px;margin:0 auto;padding:0 16px 64px;}
+</style>
+</head>
+<body>
+<div class="layout">
+<header>
+<h1>Iris × AI4I 2020 — 既有結果靜態展示</h1>
+<p class="muted">純 HTML + 原生 JavaScript 讀取 results.json 顯示；不訓練、不重算，所有數字皆來自 results/ 下的既有輸出。
+<span id="generatedAt"></span></p>
+<nav>
+<a href="inference.html">互動推論表單</a> ·
+<a href="reports/iris-nn-paper.html">小論文</a> ·
+<a href="reports/model_comparison.html">模型比較</a> ·
+<a href="reports/evaluation_figures.html">評估圖表說明</a>
+</nav>
+</header>
+
+<section id="content" aria-live="polite"><p class="muted">載入 results.json …</p></section>
+
+<section>
+<h2>報告（由 docs/*.md 轉成）</h2>
+<ul id="reportLinks" class="links"></ul>
+</section>
+
+<section>
+<h2>圖表（自 figures/ 原檔複製）</h2>
+<div id="figGrid" class="fig-grid"></div>
+</section>
+</div>
+<script src="site.js"></script>
+<script>
+const fmt = (v, d = 4) => (v == null ? "—" : (typeof v === "number" ? Number(v).toFixed(d) : v));
+
+function card(title, rows) {
+  return `<div class="kpi"><h3>${title}</h3>` + rows.map(
+    ([k, v]) => `<div class="row"><span>${k}</span><strong>${v}</strong></div>`
+  ).join("") + "</div>";
+}
+
+async function main() {
+  const res = await fetch("results.json");
+  const data = await res.json();
+  if (data.generated_at) document.getElementById("generatedAt").textContent =
+    `產生時間：${fmt(data.generated_at)}`;
+
+  const nn = data.nn_metrics || {};
+  const pca = data.pca_result || {};
+  const cmp = data.model_comparison || {};
+  const best = cmp.best || {};
+  const tm = data.test_metrics || {};
+  const test = tm.metrics || {};
+  const ev = data.ai4i_metrics || {};
+  const ts = data.time_split || {};
+  const src = data._sources || {};
+
+  const irisHtml = [
+    card("Iris NN", [
+      ["測試 accuracy", fmt(nn.test_accuracy)],
+      ["CV accuracy", `${fmt(nn.cv_accuracy_mean)} ± ${fmt(nn.cv_accuracy_std)}`],
+      ["epochs", nn.epochs_run ?? "—"],
+    ]),
+    card("Iris PCA", [
+      ["第 1 主成分", fmt((pca.explained_variance_ratio || [])[0])],
+      ["第 3 主成分累積", fmt((pca.cumulative_ratio || [])[2])],
+    ]),
+  ];
+
+  const ai4iHtml = [
+    card("AI4I 模型", [
+      ["最佳模型", `${best.model ?? "—"}（${best.strategy ?? "—"}）`],
+      ["OOF PR-AUC", fmt(best.pr_auc_oof)],
+      ["閾值（OOF）", fmt(best.threshold)],
+    ]),
+    card("AI4I 測試集", [
+      ["PR-AUC", fmt(test.pr_auc)],
+      ["Precision", fmt(test.precision)],
+      ["Recall", fmt(test.recall)],
+      ["閾值", fmt(test.threshold)],
+      ["ROC-AUC", fmt(ev.curves && ev.curves.roc_auc)],
+      ["Brier", fmt(ev.calibration && ev.calibration.brier)],
+    ]),
+    card("時間切分對照", [
+      ["time-split PR-AUC", fmt(ts.time_split && ts.time_split.pr_auc)],
+      ["PR-AUC 差異", fmt(ts.differences && ts.differences.pr_auc_diff)],
+      ["結論", ts.verdict ?? "—"],
+    ]),
+  ];
+
+  document.getElementById("content").innerHTML = `
+    <section><h2>結果摘要</h2>
+      <div class="grid">${irisHtml.join("")}</div>
+    </section>
+    <section><h2>AI4I 2020（隨機森林 + sigmoid 校準）</h2>
+      <div class="grid">${ai4iHtml.join("")}</div>
+    </section>
+    <section><h2>數字來源</h2>
+      <ul>${Object.entries(src || {}).map(
+        ([k, v]) => `<li><code>${k}</code> ← <code>${v}</code></li>`).join("")}</ul>
+    </section>`;
+
+  document.getElementById("reportLinks").innerHTML =
+    (typeof REPORT_TITLES !== "undefined" ? Object.entries(REPORT_TITLES) : [])
+      .map(([file, title]) => `<li><a href="${file}">${title}</a></li>`).join("");
+
+  document.getElementById("figGrid").innerHTML = (typeof FIGURES !== "undefined" ? FIGURES : [])
+    .map(name => `<figure><img loading="lazy" src="figures/${name}" alt="${name}"><figcaption>${name}</figcaption></figure>`)
+    .join("");
+}
+
+main().catch(err => {
+  document.getElementById("content").innerHTML =
+    `<p class="err">載入 results.json 失敗：${err}</p>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>互動推論（僅前端）</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 20px auto; padding: 0 10px; }
+    .row { display: flex; gap: 20px; flex-wrap: wrap; }
+    .card { border: 1px solid #ccc; padding: 15px; flex: 1; min-width: 300px; }
+    label { display: block; margin: 6px 0; }
+    input, select { width: 200px; padding: 4px; }
+    button { margin-top: 10px; padding: 6px 12px; }
+    #result { border: 1px solid #999; padding: 15px; margin-top: 20px; background: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <h1>互動推論（全部在前端完成）</h1>
+  <div id="status">loading...</div>
+  <div class="row">
+    <div class="card">
+      <h2>Iris 表單</h2>
+      <form id="irisForm">
+        <label>花萼長度 sepal_length: <input name="sl" type="number" step="any" value="5.1" required></label>
+        <label>花萼寬度 sepal_width: <input name="sw" type="number" step="any" value="3.5" required></label>
+        <label>花瓣長度 petal_length: <input name="pl" type="number" step="any" value="1.4" required></label>
+        <label>花瓣寬度 petal_width: <input name="pw" type="number" step="any" value="0.2" required></label>
+        <button type="submit">送出</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>AI4I 表單</h2>
+      <form id="ai4iForm">
+        <label>空氣溫度 Air temperature [K]: <input name="air" type="number" step="any" value="298.1" required></label>
+        <label>製程溫度 Process temperature [K]: <input name="proc" type="number" step="any" value="308.6" required></label>
+        <label>轉速 Rotational speed [rpm]: <input name="rpm" type="number" step="any" value="1551" required></label>
+        <label>扭矩 Torque [Nm]: <input name="torque" type="number" step="any" value="42.8" required></label>
+        <label>刀具磨耗 Tool wear [min]: <input name="wear" type="number" step="any" value="0" required></label>
+        <label>產品等級 Type: 
+          <select name="type">
+            <option value="L">L</option>
+            <option value="M">M</option>
+            <option value="H">H</option>
+          </select>
+        </label>
+        <button type="submit">送出</button>
+      </form>
+    </div>
+  </div>
+  <div id="result">結果顯示區（兩個表單共用）</div>
+  <script src="./app.js"></script>
+</body>
+</html>

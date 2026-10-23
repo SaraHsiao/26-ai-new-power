@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4I 2020 評估視覺化與誤判分析</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>AI4I 2020 評估視覺化與誤判分析</h1>
+<blockquote><p>本檔案由 <code>src/ai4i_evaluate.py</code> 自動產生；數字與 <code>results/ai4i_metrics.json</code> 一致。</p></blockquote>
+<h2>摘要</h2>
+<p>最終模型（random_forest，已校準）在測試集 2,000 筆（68 筆故障）上的表現：</p>
+<ul>
+<li>PR-AUC <strong>0.9008</strong>、ROC-AUC 0.9838</li>
+<li>Precision <strong>0.8788</strong>、Recall <strong>0.8529</strong>、F1 0.8657、MCC 0.8611</li>
+<li>Lift <strong>25.85×</strong>、Brier 0.0068</li>
+<li>混淆矩陣：TP 58 / FP 8 / FN 10 / TN 1924</li>
+</ul>
+<h2>圖 1：Precision-Recall 曲線（<code>ai4i_pr_curve.png</code>）</h2>
+<p>PR 曲線的 AP 為 <strong>0.9008</strong>，隨機猜的基線是故障率 <strong>3.4000%</strong>。在 3.4% 的不平衡資料中，ROC 曲線會被大量 TN 稀釋，看起來幾乎完美；PR 曲線只關注「被預測為故障」的樣本，更能反映實際巡檢成本，因此本專案以 PR-AUC 為主要指標。</p>
+<p>黑色操作點對應 OOF 選出的閾值（0.085）：Recall 0.853、Precision 0.879。</p>
+<h2>圖 2：ROC 曲線（<code>ai4i_roc_curve.png</code>）</h2>
+<p>ROC-AUC 為 <strong>0.9838</strong>。這個數字很高，但主要來自 TN（1,924 筆正常）容易分類；它不能單獨用來判斷模型對故障的實用性，僅作為補充。</p>
+<h2>圖 3：混淆矩陣（<code>ai4i_confusion.png</code>）</h2>
+<ul>
+<li>68 筆故障中抓到 <strong>58 筆（85.3%）</strong>，漏掉 <strong>10 筆</strong></li>
+<li>1,932 筆正常中誤報 <strong>8 筆（0.41%）</strong></li>
+<li>漏檢率（FNR）14.71%、誤報率（FPR）0.41%</li>
+</ul>
+<p>矩陣內的百分比以「實際類別」為分母，可直接回答「故障抓得到幾成」與「正常會被誤判幾成」。</p>
+<h2>圖 4：可靠性圖（<code>ai4i_calibration.png</code>）</h2>
+<p>Brier score <strong>0.0068</strong>（越低越好）。採均勻分箱：低機率箱（n=1934）平均預測 0.0055、實際 0.0052；高機率箱（n=45）平均預測 0.979、實際 1.000。中間機率（0.05–0.95）只有 21 筆，個別箱的觀測比例變異大，不宜過度解讀；整體而言，模型在大量低風險樣本與高風險樣本上的機率是可信的，可供成本決策使用。</p>
+<h2>圖 5：特徵重要度（<code>ai4i_importance.png</code>）</h2>
+<p>以測試集上的 permutation importance（PR-AUC 下降量）衡量：</p>
+<table>
+<thead><tr><th>排名</th><th>特徵</th><th>平均下降</th><th>標準差</th><th>對應物理機制</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>Torque [Nm]</code></td><td>0.7707</td><td>0.0061</td><td>OSF（扭矩×磨耗）、PWF（功率）</td></tr>
+<tr><td>2</td><td><code>Rotational speed [rpm]</code></td><td>0.5524</td><td>0.0222</td><td>PWF（功率）、HDF（轉速門檻）</td></tr>
+<tr><td>3</td><td><code>Air temperature [K]</code></td><td>0.4289</td><td>0.0268</td><td>HDF（溫差）</td></tr>
+<tr><td>4</td><td><code>Tool wear [min]</code></td><td>0.3554</td><td>0.0270</td><td>TWF（刀具磨耗）與 OSF（磨耗×扭矩）</td></tr>
+<tr><td>5</td><td><code>Process temperature [K]</code></td><td>0.2091</td><td>0.0154</td><td>HDF（溫差）</td></tr>
+<tr><td>6</td><td><code>Type</code></td><td>0.0400</td><td>0.0183</td><td>產品等級，與故障率相關（L 3.92% / M 2.77% / H 2.09%）</td></tr>
+</tbody></table>
+<p>前 3 名為 <code>Torque [Nm]</code>（OSF（扭矩×磨耗）、PWF（功率））、<code>Rotational speed [rpm]</code>（PWF（功率）、HDF（轉速門檻））、<code>Air temperature [K]</code>（HDF（溫差）），都能對應到物理機制。扭矩與轉速共同決定功率（PWF）與應變負荷（OSF），氣溫與製程溫度共同決定溫差（HDF）；沒有出現「重要度很高但無法解釋」的特徵。 值得注意的是 <code>Tool wear [min]</code> 只排第 4，而 TWF 的 recall 明顯偏低（見圖 7）；這表示模型目前較依賴扭矩/轉速，對刀具磨耗的權重不足，是後續改進的直接線索。</p>
+<h2>圖 6：物理機制對照（<code>ai4i_physical.png</code>）</h2>
+<table>
+<thead><tr><th>模式</th><th>物理特徵</th><th>旗標 n</th><th>其中故障 n_mf</th><th>抓到（故障）</th><th>Recall（故障）</th><th>已知判準</th></tr></thead>
+<tbody>
+<tr><td>TWF</td><td>刀具磨耗（Tool Wear）</td><td>10</td><td>10</td><td>2/10</td><td>0.20</td><td>磨耗 200–240 min</td></tr>
+<tr><td>HDF</td><td>散熱失效（Heat Dissipation）</td><td>29</td><td>29</td><td>29/29</td><td>1.00</td><td>溫差 &lt; 8.6 K 且轉速 &lt; 1380 rpm</td></tr>
+<tr><td>PWF</td><td>電力失效（Power）</td><td>13</td><td>13</td><td>13/13</td><td>1.00</td><td>功率 &lt; 3,500 W 或 &gt; 9,000 W</td></tr>
+<tr><td>OSF</td><td>應變超限（Overstrain）</td><td>16</td><td>16</td><td>16/16</td><td>1.00</td><td>扭矩 × 磨耗超過等級門檻</td></tr>
+<tr><td>RNF</td><td>隨機失效（Random）</td><td>4</td><td>0</td><td>—</td><td>—</td><td>無（隨機）</td></tr>
+</tbody></table>
+<p>圖中箱型圖使用全資料 10,000 筆以呈現物理分布，角落註記為測試集故障 recall。HDF=1 的溫差集中在 8.6 K 判準以下、PWF=1 落在正常功率區間之外、OSF=1 的扭矩×磨耗明顯偏高、TWF=1 的磨耗接近 240 min，都與文獻描述的機制一致。</p>
+<h2>圖 7：五種失效模式 recall（<code>ai4i_mode_recall.png</code>）</h2>
+<ul>
+<li>TWF：10 筆故障中只抓到 2 筆（recall <strong>0.20</strong>），是整體 recall 的主要缺口。</li>
+<li>HDF、PWF、OSF：HDF 29/29、PWF 13/13、OSF 16/16，測試集全部抓到（recall 1.00）。</li>
+<li>RNF 旗標在測試集有 <strong>4 筆</strong>，但全部不是 Machine failure（全資料 19 筆旗標也只有 1 筆同時是故障）；因此這個切分無法估計 RNF 的 recall，它也不構成 recall 上限。</li>
+<li>真正無法由模式旗標解釋的是 <strong>2 筆無模式故障</strong>，所以 recall 上限為 1 − 2/68 = <strong>0.971</strong>。目前整體 recall 為 0.853，與上限的差距 0.118 幾乎全部來自 8 筆 TWF 漏檢（另有 2 筆無模式故障），不是模型不穩定。</li>
+</ul>
+<h2>誤判分析（<code>results/error_cases.csv</code>）</h2>
+<ul>
+<li>偽陰性（FN）<strong>10 筆</strong>、偽陽性（FP）<strong>8 筆</strong></li>
+</ul>
+<table>
+<thead><tr><th>特徵</th><th>FN 平均</th><th>TP 平均</th><th>FP 平均</th><th>TN 平均</th></tr></thead>
+<tbody>
+<tr><td>Temp diff [K]</td><td>10.03</td><td>9.28</td><td>9.34</td><td>10.02</td></tr>
+<tr><td>Power [W]</td><td>5633.02</td><td>7531.27</td><td>7166.86</td><td>6229.74</td></tr>
+<tr><td>Torque x Tool wear</td><td>7263.82</td><td>7585.22</td><td>7114.16</td><td>4238.92</td></tr>
+<tr><td>Tool wear [min]</td><td>207.60</td><td>143.97</td><td>147.88</td><td>107.29</td></tr>
+<tr><td>Torque [Nm]</td><td>34.72</td><td>52.82</td><td>50.29</td><td>39.52</td></tr>
+<tr><td>Rotational speed [rpm]</td><td>1599.00</td><td>1458.98</td><td>1475.62</td><td>1538.72</td></tr>
+</tbody></table>
+<ul>
+<li>FN 與 TP 的平均特徵差異（括號為 TP）：Tool wear [min] 207.60（TP 143.97）；Torque [Nm] 34.72（TP 52.82）。</li>
+<li>FP 與 TN 的平均特徵差異（括號為 TN）：Torque x Tool wear 7114.16（TN 4238.92）；Tool wear [min] 147.88（TN 107.29）。</li>
+</ul>
+<p>FN 的模式組成：TWF 8、HDF 0、PWF 0、OSF 0、RNF 0（無模式 2 筆）。 FP 的模式組成：TWF 0、HDF 0、PWF 0、OSF 0、RNF 0（無模式 8 筆）。</p>
+<p>最具代表性的錯誤（依預測機率排序）：</p>
+<p><strong>偽陰性（漏檢）</strong></p>
+<table>
+<thead><tr><th>UDI</th><th>Type</th><th>proba</th><th>Tool wear</th><th>Torque</th><th>Temp diff</th><th>Power</th><th>模式</th></tr></thead>
+<tbody>
+<tr><td>4035</td><td>L</td><td>0.0566</td><td>235</td><td>29.0</td><td>8.80</td><td>4,905</td><td>TWF</td></tr>
+<tr><td>7088</td><td>L</td><td>0.0102</td><td>217</td><td>30.5</td><td>9.70</td><td>5,264</td><td>TWF</td></tr>
+<tr><td>2672</td><td>M</td><td>0.0099</td><td>221</td><td>41.9</td><td>9.60</td><td>6,138</td><td>TWF</td></tr>
+</tbody></table>
+<p><strong>偽陽性（誤報）</strong></p>
+<table>
+<thead><tr><th>UDI</th><th>Type</th><th>proba</th><th>Tool wear</th><th>Torque</th><th>Temp diff</th><th>Power</th><th>模式</th></tr></thead>
+<tbody>
+<tr><td>5989</td><td>H</td><td>0.8305</td><td>204</td><td>58.2</td><td>10.10</td><td>7,899</td><td>無模式旗標</td></tr>
+<tr><td>3795</td><td>M</td><td>0.5937</td><td>36</td><td>48.3</td><td>8.60</td><td>6,859</td><td>無模式旗標</td></tr>
+<tr><td>4232</td><td>L</td><td>0.5646</td><td>54</td><td>47.8</td><td>8.60</td><td>6,708</td><td>無模式旗標</td></tr>
+</tbody></table>
+<h2>結論</h2>
+<ol>
+<li>測試集 PR-AUC 0.9008、Recall 0.853、Precision 0.879、Lift 25.85×，符合 #3 的必要門檻；Brier score 0.0068 且可靠性圖在低/高機率區間與對角線一致。</li>
+<li>重要度前 3 名（Torque [Nm], Rotational speed [rpm], Air temperature [K]）都能對應到 PWF/HDF/OSF 的物理機制，沒有無法解釋的主要特徵。</li>
+<li>最大缺口是 <strong>TWF</strong>：10 筆故障只抓到 2 筆（recall 0.20），且 10 筆 FN 中有 8 筆是 TWF。這些樣本刀具磨耗已達 200–240 min，但扭矩/功率偏低，模型因此給低分；Tool wear 的重要性只排第 4，是可直接改進的方向（例如提高磨耗相關特徵權重或加入交互項）。</li>
+<li>FP 共 8 筆（FPR 0.41%），全部沒有模式旗標，但扭矩×磨耗與功率偏高；屬於「風險因子接近門檻但未實際失效」的邊界樣本，對巡檢成本影響有限，但仍應監控。</li>
+<li>RNF 旗標在本資料幾乎不與 Machine failure 重疊（測試集 4 筆全非故障，全資料 19 筆只有 1 筆是故障），因此不能把「未抓到 RNF」當成模型缺陷；真正不可解釋的是 2 筆無模式故障，recall 上限約 <strong>0.971</strong>。目前 0.853 與上限的差距主要來自 TWF 漏檢。</li>
+<li>限制：測試集只評估一次，以上分析不再回頭調參；permutation importance 是描述性而非因果；未使用 SHAP（環境未安裝），以 permutation importance 取代。</li>
+</ol>
+<h2>重現方式</h2>
+<pre><code>python src/ai4i_evaluate.py   # 只讀取既有測試集預測，不重新評估
+python -m pytest tests -q</code></pre>
+</main>
+</body>
+</html>

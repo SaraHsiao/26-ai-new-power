@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4I 2020 資料集探索報告</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>AI4I 2020 資料集探索報告</h1>
+<blockquote><p>本檔案由 <code>src/ai4i_data_prep.py</code> 自動產生；所有數字皆可重跑取得。</p></blockquote>
+<h2>1. 資料來源與授權</h2>
+<ul>
+<li>資料集：<strong>AI4I 2020 Predictive Maintenance Dataset</strong></li>
+<li>來源：https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset</li>
+<li>授權：<strong>CC BY 4.0</strong></li>
+<li>下載日期：2026-10-23</li>
+<li>檔案 SHA256：<code>dc6630cd9b1f0f853922fad78a1b6436570d3f1ec863f1dd5c4340ac56bc8a8e</code></li>
+<li>引用：Matzka, S. (2020). AI4I 2020 Predictive Maintenance Dataset. UCI Machine Learning Repository. https://doi.org/10.24432/C5HS5C</li>
+</ul>
+<h2>2. 資料形狀與欄位</h2>
+<ul>
+<li>筆數：<strong>10,000</strong></li>
+<li>欄位數：<strong>14</strong>（3 個識別／類別欄 + 5 個感測特徵 + 6 個標籤欄）</li>
+</ul>
+<table>
+<thead><tr><th>欄位</th><th>型別</th><th>說明</th><th>作為特徵</th></tr></thead>
+<tbody>
+<tr><td>UDI</td><td>整數</td><td>流水號（嚴格遞增）</td><td>否（僅供時間切分參考）</td></tr>
+<tr><td>Product ID</td><td>字串</td><td>產品編號，首碼等於 Type</td><td>否（與 Type 重複）</td></tr>
+<tr><td>Type</td><td>類別</td><td>產品等級 L / M / H</td><td>是（one-hot）</td></tr>
+<tr><td>Air temperature [K]</td><td>數值</td><td>環境溫度</td><td>是</td></tr>
+<tr><td>Process temperature [K]</td><td>數值</td><td>製程溫度</td><td>是</td></tr>
+<tr><td>Rotational speed [rpm]</td><td>數值</td><td>轉速</td><td>是</td></tr>
+<tr><td>Torque [Nm]</td><td>數值</td><td>扭矩</td><td>是</td></tr>
+<tr><td>Tool wear [min]</td><td>數值</td><td>刀具磨耗（累積分鐘）</td><td>是</td></tr>
+<tr><td>Machine failure</td><td>二元</td><td>是否故障（目標）</td><td><strong>預測目標</strong></td></tr>
+<tr><td>TWF / HDF / PWF / OSF / RNF</td><td>二元</td><td>五種失效模式旗標</td><td><strong>否（會洩漏答案）</strong></td></tr>
+</tbody></table>
+<h2>3. 基本檢查</h2>
+<table>
+<thead><tr><th>檢查項目</th><th>結果</th></tr></thead>
+<tbody>
+<tr><td>缺失值總數</td><td>0</td></tr>
+<tr><td>完全重複列</td><td>0</td></tr>
+<tr><td>UDI 嚴格遞增</td><td>是</td></tr>
+<tr><td>UDI 唯一</td><td>是</td></tr>
+<tr><td>Product ID 首碼 == Type</td><td>是（100%）</td></tr>
+</tbody></table>
+<p>結論：資料完整、無缺失與重複，<code>Product ID</code> 與 <code>Type</code> 完全重複，後續只保留 <code>Type</code>；<code>UDI</code> 為嚴格遞增流水號，可作為時間切分的依據。</p>
+<h2>4. 目標變數分布</h2>
+<table>
+<thead><tr><th>Machine failure</th><th>筆數</th><th>占比</th></tr></thead>
+<tbody>
+<tr><td>0（正常）</td><td>9,661</td><td>96.61%</td></tr>
+<tr><td>1（故障）</td><td>339</td><td>3.39%</td></tr>
+</tbody></table>
+<p>故障率僅 <strong>3.39%</strong>，屬極度不平衡資料集：全部猜「正常」即可得到 <strong>96.61%</strong> 的 accuracy，因此後續不得以 accuracy 作為主要指標。</p>
+<h2>5. Type 分布與故障率</h2>
+<table>
+<thead><tr><th>Type</th><th>筆數</th><th>占比</th><th>故障率</th></tr></thead>
+<tbody>
+<tr><td>L</td><td>6,000</td><td>60.0%</td><td>3.92%</td></tr>
+<tr><td>M</td><td>2,997</td><td>30.0%</td><td>2.77%</td></tr>
+<tr><td>H</td><td>1,003</td><td>10.0%</td><td>2.09%</td></tr>
+</tbody></table>
+<p>故障率以 <strong>L 最高（3.92%）</strong>、M 次之（2.77%）、H 最低（2.09%），並非單調關係；因此不應假設「等級越高越容易故障」，但 <code>Type</code> 與故障率確實相關，仍值得保留為特徵。</p>
+<h2>6. 五種失效模式</h2>
+<table>
+<thead><tr><th>旗標</th><th>意義</th><th>筆數</th><th>占全資料</th><th>占故障</th></tr></thead>
+<tbody>
+<tr><td>TWF</td><td>Tool Wear Failure（刀具磨耗失效）</td><td>46</td><td>0.46%</td><td>13.6%</td></tr>
+<tr><td>HDF</td><td>Heat Dissipation Failure（散熱失效）</td><td>115</td><td>1.15%</td><td>33.9%</td></tr>
+<tr><td>PWF</td><td>Power Failure（電力失效）</td><td>95</td><td>0.95%</td><td>28.0%</td></tr>
+<tr><td>OSF</td><td>Overstrain Failure（應變超限）</td><td>98</td><td>0.98%</td><td>28.9%</td></tr>
+<tr><td>RNF</td><td>Random Failure（隨機失效）</td><td>19</td><td>0.19%</td><td>5.6%</td></tr>
+</tbody></table>
+<h3>6.1 標籤之間並非完全等價（重要）</h3>
+<ul>
+<li><code>Machine failure == OR(五旗標)</code> 的不一致筆數：<strong>27</strong></li>
+<li>有故障（Machine failure = 1）但五旗標皆為 0：<strong>9</strong> 筆（未分類故障）</li>
+<li>五旗標有任一為 1 但 Machine failure = 0：<strong>18</strong> 筆（旗標與標籤不一致）</li>
+<li>同時成立的模式數分布：0 個 9,652 筆、1 個 324 筆、2 個 23 筆、3 個 1 筆</li>
+</ul>
+<p>因此<strong>不能</strong>用五個模式旗標回推 <code>Machine failure</code>，也不能把它們放進特徵；這正是本專案要嚴格防止的標籤洩漏。</p>
+<h2>7. 數值特徵敘述統計</h2>
+<table>
+<thead><tr><th>特徵</th><th>平均</th><th>標準差</th><th>最小</th><th>Q1</th><th>中位數</th><th>Q3</th><th>最大</th></tr></thead>
+<tbody>
+<tr><td>Air temperature [K]</td><td>300.0049</td><td>2.0003</td><td>295.3</td><td>298.3</td><td>300.1</td><td>301.5</td><td>304.5</td></tr>
+<tr><td>Process temperature [K]</td><td>310.0056</td><td>1.4837</td><td>305.7</td><td>308.8</td><td>310.1</td><td>311.1</td><td>313.8</td></tr>
+<tr><td>Rotational speed [rpm]</td><td>1538.7761</td><td>179.2841</td><td>1168.0</td><td>1423.0</td><td>1503.0</td><td>1612.0</td><td>2886.0</td></tr>
+<tr><td>Torque [Nm]</td><td>39.9869</td><td>9.9689</td><td>3.8</td><td>33.2</td><td>40.1</td><td>46.8</td><td>76.6</td></tr>
+<tr><td>Tool wear [min]</td><td>107.951</td><td>63.6541</td><td>0.0</td><td>53.0</td><td>108.0</td><td>162.0</td><td>253.0</td></tr>
+</tbody></table>
+<h2>8. 物理工程特徵（初步）</h2>
+<ul>
+<li><code>Temp diff [K] = Process temperature − Air temperature</code>：散熱失效（HDF）的已知判準為溫差 &lt; 8.6 K 且轉速 &lt; 1380 rpm。</li>
+<li><code>Power [W] = Torque × 2π × RPM / 60</code>：電力失效（PWF）的已知判準為功率落在 3,500–9,000 W 之外。</li>
+<li>相關係數：Power 與轉速 <strong>-0.806</strong>、與扭矩 <strong>0.979</strong>。</li>
+</ul>
+<h2>9. 物理機制初步觀察</h2>
+<table>
+<thead><tr><th>模式</th><th>故障樣本平均</th><th>其餘樣本平均</th><th>觀察</th></tr></thead>
+<tbody>
+<tr><td>HDF</td><td>8.23 K</td><td>10.02 K</td><td>故障時溫差明顯較小</td></tr>
+<tr><td>PWF</td><td>7,252 W</td><td>6,270 W</td><td>故障時平均功率偏離正常區間</td></tr>
+<tr><td>OSF</td><td>12,067</td><td>4,238</td><td>故障時 扭矩×磨耗 明顯較高</td></tr>
+<tr><td>TWF</td><td>216.4 min</td><td>107.4 min</td><td>故障時磨耗較高</td></tr>
+</tbody></table>
+<h2>10. 對後續工作的啟示</h2>
+<ol>
+<li><strong>標籤洩漏</strong>：<code>TWF/HDF/PWF/OSF/RNF</code> 必須排除於特徵之外，並以程式化 assert 保護（#5）。</li>
+<li><strong>極度不平衡</strong>：故障率 3.39%，主要指標採 PR-AUC 與 Recall/Precision，不使用 accuracy（#6）。</li>
+<li><strong>RNF 限制</strong>：19 筆隨機失效本質上不可由感測特徵預測，構成 recall 上限。</li>
+<li><strong>類型與時間</strong>：<code>Type</code> 有預測價值；<code>UDI</code> 嚴格遞增，可作為時間切分的順序依據（#9）。</li>
+<li><strong>特徵工程</strong>：溫差與功率具有明確物理意義，值得在 #5 納入。</li>
+</ol>
+</main>
+</body>
+</html>

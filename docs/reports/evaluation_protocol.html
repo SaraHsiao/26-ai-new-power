@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4I 2020 評估協定</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>AI4I 2020 評估協定</h1>
+<blockquote><p>本文件定義「怎麼評分、怎麼挑閾值、怎麼比較」。程式實作於 <code>src/ai4i_eval.py</code>， 規則若有爭議，以程式與測試為準。</p></blockquote>
+<h2>1. 為什麼不用 accuracy</h2>
+<p>資料集故障率 <strong>3.39%</strong>（339 / 10,000）。一個永遠預測「正常」的模型：</p>
+<ul>
+<li>accuracy = <strong>96.61%</strong></li>
+<li>但 recall = 0，完全抓不到任何故障</li>
+</ul>
+<p>因此 accuracy 在本專案<strong>不作為主要指標</strong>，只保留為輔助欄位，用來對照「看似很高但沒有用」的模型。 主要指標是 <strong>PR-AUC（Average Precision）</strong>，並輔以 Precision / Recall / Lift。</p>
+<h2>2. 指標定義</h2>
+<table>
+<thead><tr><th>指標</th><th>定義</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><strong>PR-AUC</strong></td><td><code>average_precision_score(y, proba)</code></td><td><strong>主要指標</strong>；對不平衡資料比 ROC-AUC 敏感</td></tr>
+<tr><td>Precision</td><td>TP / (TP + FP)</td><td>誤報有多少</td></tr>
+<tr><td>Recall</td><td>TP / (TP + FN)</td><td>漏檢有多少</td></tr>
+<tr><td>F1</td><td>2PR / (P + R)</td><td>單一平衡分數</td></tr>
+<tr><td>MCC</td><td>Matthews correlation coefficient</td><td>考慮 TN 的整體相關性</td></tr>
+<tr><td>Lift</td><td>Precision / prevalence</td><td>相對「隨機猜」提升幾倍</td></tr>
+<tr><td>accuracy</td><td>(TP + TN) / N</td><td><strong>僅參考</strong>，不可作為驗收依據</td></tr>
+</tbody></table>
+<p><code>evaluate()</code> 回傳的字典包含上表所有指標、混淆矩陣（tp/fp/fn/tn）與 <code>primary_metric = "pr_auc"</code>。</p>
+<h3>Dummy 基線</h3>
+<p>全猜「故障」的基線：PR-AUC = 故障率（0.0339）、Recall = 1、Lift = 1。 任何模型的 PR-AUC 若沒有明顯高於 0.0339，就等於沒有學到東西。</p>
+<h2>3. 切分與 OOF 協定</h2>
+<ul>
+<li><strong>隨機切分</strong>：80% 訓練 / 20% 測試，<code>stratify=y</code>、<code>random_state=42</code>。</li>
+</ul>
+<p>測試集約有 <strong>68 筆故障</strong>（339 × 20%）。</p>
+<ul>
+<li><strong>交叉驗證</strong>：訓練集內用 Stratified 5-fold（<code>random_state=42</code>）。</li>
+<li><strong>OOF 預測</strong>：<code>collect_oof()</code> 讓每一筆訓練資料都被「沒看過它」的模型預測一次，</li>
+</ul>
+<p>用來選閾值與比較模型；<code>OOFResult</code> 內含每筆資料所屬的 fold。</p>
+<ul>
+<li><strong>時間切分</strong>（#9）：以 <code>UDI</code> 排序後切分，作為穩健性對照，不取代隨機切分。</li>
+</ul>
+<h2>4. 閾值選擇規則（強制）</h2>
+<p><code>choose_threshold()</code> 只接受 <code>collect_oof()</code> 產生的 <code>OOFResult</code>。 若傳入原始陣列（包含測試集預測），會直接 raise <code>TypeError</code>：</p>
+<pre><code>choice = choose_threshold(oof, cost_fn=10.0, cost_fp=1.0)</code></pre>
+<ul>
+<li>在 OOF 預測上，對每個候選閾值計算混淆矩陣。</li>
+<li>最小化加權成本：<code>cost = cost_fn × FN + cost_fp × FP</code>。</li>
+<li>預設成本假設為 <strong>漏檢 : 誤報 = 10 : 1</strong>（<code>cost_fn=10.0</code>、<code>cost_fp=1.0</code>），</li>
+</ul>
+<p>可依場域調整；提高 <code>cost_fn</code> 會把操作點推向高 recall。</p>
+<ul>
+<li>回傳 <code>ThresholdChoice</code>，內含閾值、成本、每筆平均成本與該點的完整指標。</li>
+</ul>
+<blockquote><p>不允許用測試集選閾值、挑模型或調整任何超參數。</p></blockquote>
+<h2>5. 測試集使用規範</h2>
+<ul>
+<li>測試集<strong>只評估一次</strong>：模型與閾值都定案後才載入測試集。</li>
+<li>測試集不得用於特徵選擇、模型選擇、閾值調整或早期停止。</li>
+<li>報告中的數字必須能對應 <code>results/*.json</code>，不可手動抄寫。</li>
+<li>若需要來回實驗，一律在訓練集的 CV / OOF 上進行。</li>
+</ul>
+<h2>6. Bootstrap 信賴區間</h2>
+<p><code>bootstrap_ci()</code> 以 1,000 次重抽樣（可調整）估計指標的 95% 百分位區間：</p>
+<pre><code>ci = bootstrap_ci(y_test, test_proba, metric=&quot;pr_auc&quot;, n_boot=1000, random_state=42)
+# -&gt; {&quot;point&quot;: ..., &quot;lower&quot;: ..., &quot;upper&quot;: ..., ...}</code></pre>
+<ul>
+<li>支援 <code>pr_auc</code>、<code>precision</code>、<code>recall</code>、<code>f1</code>、<code>lift</code>、<code>accuracy</code>、<code>mcc</code>。</li>
+<li>重抽樣若只剩單一類別，<code>pr_auc</code> 無定義，該次會跳過（不計入百分位）。</li>
+<li>邊界情況（全對、全錯）已有單元測試：全對的 recall CI 為 <code>[1, 1]</code>，</li>
+</ul>
+<p>全錯為 <code>[0, 0]</code>。</p>
+<ul>
+<li>隨機種子固定，結果可重現。</li>
+</ul>
+<h2>7. 不平衡策略</h2>
+<table>
+<thead><tr><th>策略</th><th>實作</th><th>說明</th></tr></thead>
+<tbody>
+<tr><td><code>none</code></td><td>原始模型</td><td>對照組</td></tr>
+<tr><td><code>class_weight</code></td><td><code>class_weight="balanced"</code></td><td>依類別頻率加權，不需額外套件</td></tr>
+<tr><td><code>SMOTE</code></td><td><code>imblearn</code>（選配）</td><td>未安裝時 <code>build_imbalance_pipeline("smote", ...)</code> 會 raise <code>ImportError</code> 並提示安裝</td></tr>
+</tbody></table>
+<p>SMOTE 只會在<strong>訓練 fold 內</strong>執行（<code>imblearn.pipeline.Pipeline</code>）， 不會把合成樣本混進驗證或測試資料。</p>
+<h2>8. 成本假設表</h2>
+<table>
+<thead><tr><th>情況</th><th>代價</th><th>預設權重</th></tr></thead>
+<tbody>
+<tr><td>漏檢（FN，實際故障但未預警）</td><td>停機、維修、安全風險</td><td>10</td></tr>
+<tr><td>誤報（FP，無故障卻預警）</td><td>多一次檢查</td><td>1</td></tr>
+</tbody></table>
+<p>成本可調整，例如 <code>cost_fn=50</code> 代表漏檢代價是誤報的 50 倍。 <code>ThresholdChoice.metrics</code> 會直接給出該操作點的 Precision / Recall / F1， 方便與現場人員討論「這個閾值要抓多少、誤報多少」。</p>
+<h2>9. 驗收門檻（對應 #3）</h2>
+<table>
+<thead><tr><th>層級</th><th>條件</th></tr></thead>
+<tbody>
+<tr><td>必要</td><td>PR-AUC ≥ 0.80，且 bootstrap 95% 下界 ≥ 0.70</td></tr>
+<tr><td>必要</td><td>Lift ≥ 10×（相對故障率 3.39%）</td></tr>
+<tr><td>必要</td><td>Recall ≥ 0.80 時 Precision ≥ 0.60</td></tr>
+<tr><td>加分</td><td>時間切分（#9）下仍維持合理水準</td></tr>
+<tr><td>誠實揭露</td><td>RNF（19 筆隨機失效）不可預測，recall 上限約 0.94；必須在報告中說明</td></tr>
+</tbody></table>
+<h2>10. 使用範例</h2>
+<pre><code>from ai4i_features import load_dataset, make_pipeline
+from ai4i_eval import (collect_oof, choose_threshold, evaluate,
+                       bootstrap_ci, build_imbalance_pipeline)
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X, y = load_dataset()
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=42,
+)
+
+# 1) 只用訓練集 + OOF 選閾值
+pipe = build_imbalance_pipeline(&quot;class_weight&quot;, LogisticRegression(max_iter=1000))
+oof = collect_oof(pipe, X_train, y_train, n_splits=5, random_state=42)
+choice = choose_threshold(oof, cost_fn=10.0, cost_fp=1.0)
+
+# 2) 測試集只評估一次
+pipe.fit(X_train, y_train)
+test_proba = pipe.predict_proba(X_test)[:, 1]
+metrics = evaluate(y_test, test_proba, threshold=choice.threshold)
+
+# 3) 不確定性
+ci = bootstrap_ci(y_test, test_proba, metric=&quot;recall&quot;,
+                  threshold=choice.threshold, n_boot=1000)</code></pre>
+</main>
+</body>
+</html>

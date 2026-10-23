@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4I 2020 模型比較與校準</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>AI4I 2020 模型比較與校準</h1>
+<blockquote><p>本檔案由 <code>src/ai4i_train.py</code> 自動產生；數字與 <code>results/model_comparison.json</code> 一致。</p></blockquote>
+<h2>1. 實驗設定</h2>
+<ul>
+<li>訓練資料：<strong>8,000</strong> 筆，其中故障 <strong>271</strong> 筆</li>
+<li>交叉驗證：Stratified <strong>5-fold</strong>，<code>random_state=42</code></li>
+<li>不平衡策略：<code>none</code>, <code>class_weight</code></li>
+<li>超參數搜尋：RandomizedSearchCV（n_iter=8）</li>
+<li>閾值規則：OOF 上最小化 <code>10×FN + 1×FP</code></li>
+<li>測試集：<strong>僅在模型定案後評估一次</strong>，未參與任何選擇</li>
+</ul>
+<blockquote><p>accuracy 僅供參考：全部猜「正常」即可得到 96.61%，因此不作為主要指標。</p></blockquote>
+<h2>2. 模型比較（依 OOF PR-AUC 排序）</h2>
+<table>
+<thead><tr><th>模型</th><th>策略</th><th>PR-AUC (OOF)</th><th>fold mean ± std</th><th>95% CI</th><th>閾值</th><th>Precision</th><th>Recall</th><th>F1</th><th>Lift</th><th>Brier</th></tr></thead>
+<tbody>
+<tr><td>random_forest ⭐</td><td>none</td><td>0.9016</td><td>0.9026 ± 0.0261</td><td>0.8715 – 0.9310</td><td>0.151</td><td>0.772</td><td>0.860</td><td>0.813</td><td>22.78</td><td>0.0073</td></tr>
+<tr><td>hist_gradient_boosting</td><td>class_weight</td><td>0.8911</td><td>0.8919 ± 0.0192</td><td>0.8589 – 0.9218</td><td>0.589</td><td>0.922</td><td>0.830</td><td>0.874</td><td>27.22</td><td>0.0084</td></tr>
+<tr><td>random_forest</td><td>class_weight</td><td>0.8845</td><td>0.8862 ± 0.0264</td><td>0.8527 – 0.9134</td><td>0.584</td><td>0.632</td><td>0.863</td><td>0.730</td><td>18.67</td><td>0.0210</td></tr>
+<tr><td>hist_gradient_boosting</td><td>none</td><td>0.8826</td><td>0.8831 ± 0.0233</td><td>0.8489 – 0.9139</td><td>0.165</td><td>0.877</td><td>0.841</td><td>0.859</td><td>25.89</td><td>0.0078</td></tr>
+<tr><td>logistic</td><td>none</td><td>0.4958</td><td>0.5005 ± 0.0351</td><td>0.4287 – 0.5560</td><td>0.115</td><td>0.324</td><td>0.642</td><td>0.431</td><td>9.57</td><td>0.0229</td></tr>
+<tr><td>logistic</td><td>class_weight</td><td>0.4552</td><td>0.4586 ± 0.0466</td><td>0.3955 – 0.5181</td><td>0.786</td><td>0.320</td><td>0.635</td><td>0.426</td><td>9.46</td><td>0.1094</td></tr>
+<tr><td>dummy</td><td>none</td><td>0.0338</td><td>0.0339 ± 0.0003</td><td>0.0294 – 0.0378</td><td>0.034</td><td>0.034</td><td>0.797</td><td>0.065</td><td>1.00</td><td>0.0327</td></tr>
+</tbody></table>
+<h2>3. 最佳模型</h2>
+<ul>
+<li>模型：<strong>random_forest</strong> ＋ 策略 <code>none</code></li>
+<li>OOF PR-AUC：<strong>0.9016</strong>（95% CI 0.8715 – 0.9310）</li>
+<li>操作點：閾值 <strong>0.151</strong>、Precision <strong>0.772</strong>、Recall <strong>0.860</strong>、Lift <strong>22.78×</strong></li>
+<li>超參數：<code>{"n_estimators": 150, "min_samples_leaf": 4, "max_features": 0.4, "max_depth": 8}</code></li>
+</ul>
+<h2>4. 機率校準（OOF）</h2>
+<ul>
+<li>方法：<code>sigmoid</code>（cv=3）</li>
+</ul>
+<table>
+<thead><tr><th>指標</th><th>校準前</th><th>校準後</th><th>差異</th></tr></thead>
+<tbody>
+<tr><td>Brier score（越低越好）</td><td>0.0073</td><td>0.0071</td><td>-0.0002</td></tr>
+<tr><td>PR-AUC</td><td>0.9016</td><td>0.8974</td><td>-0.0042</td></tr>
+<tr><td>Recall @ 選定閾值</td><td>0.860</td><td>0.852</td><td>—</td></tr>
+<tr><td>Precision @ 選定閾值</td><td>0.772</td><td>0.834</td><td>—</td></tr>
+</tbody></table>
+<p>決策：Brier score 下降，因此<strong>採用校準後模型</strong>（決策僅根據訓練集 OOF，未看測試集）。</p>
+<h2>5. 測試集評估（僅一次）</h2>
+<ul>
+<li>測試筆數：<strong>2,000</strong>（故障 68 筆）</li>
+<li>閾值：<strong>0.085</strong>（由 OOF 決定，未用測試集調整）</li>
+</ul>
+<table>
+<thead><tr><th>指標</th><th>數值</th></tr></thead>
+<tbody>
+<tr><td>PR-AUC</td><td><strong>0.9008</strong>（95% CI 0.8323 – 0.9552）</td></tr>
+<tr><td>Precision</td><td>0.8788</td></tr>
+<tr><td>Recall</td><td>0.8529（95% CI 0.7571 – 0.9286）</td></tr>
+<tr><td>F1</td><td>0.8657</td></tr>
+<tr><td>MCC</td><td>0.8611</td></tr>
+<tr><td>Lift</td><td>25.85×</td></tr>
+<tr><td>accuracy（僅參考）</td><td>0.9910</td></tr>
+<tr><td>混淆矩陣</td><td>TP 58 / FP 8 / FN 10 / TN 1924</td></tr>
+</tbody></table>
+<h2>6. 重現方式</h2>
+<pre><code>python src/ai4i_train.py        # 重新訓練、比較、校準（測試集若已評估會拒絕重跑）
+python -m pytest tests -q       # 全部測試</code></pre>
+<p>載入模型：</p>
+<pre><code>from ai4i_train import load_model
+bundle = load_model(&#x27;results/best_model.joblib&#x27;)
+proba = bundle[&#x27;model&#x27;].predict_proba(X_new)[:, 1]
+pred = (proba &gt;= bundle[&#x27;threshold&#x27;]).astype(int)</code></pre>
+<h2>7. 限制</h2>
+<ul>
+<li>RNF（19 筆隨機失效）無法由感測特徵預測，recall 存在上限（約 0.94）。</li>
+<li>測試集僅 68 筆故障，指標的信賴區間偏寬；已用 bootstrap 呈現不確定性。</li>
+<li>隨機切分假設資料可交換；時間漂移的影響見 #9 的時間切分對照。</li>
+</ul>
+</main>
+</body>
+</html>

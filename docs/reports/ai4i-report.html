@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4I 2020 Predictive Maintenance 分析報告</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="report">
+<p class="crumb"><a href="../index.html">← 回首頁</a></p>
+<h1>AI4I 2020 Predictive Maintenance 分析報告</h1>
+<h2>摘要</h2>
+<p>本研究針對 AI4I 2020 Predictive Maintenance Dataset（10,000 筆樣本，僅 3.4% 故障率）進行端到端預測性維護分析。採用 scikit-learn Pipeline 防止資料洩漏，僅以 OOF 決定閾值，測試集僅評估一次。最終以校準後 RandomForest 為最佳模型，在測試集達到 PR-AUC 0.9008、Recall 0.8529、Precision 0.8788、Lift 25.85×，符合驗收門檻。</p>
+<h2>緒論</h2>
+<p>預測性維護（Predictive Maintenance）旨在在設備故障前預測並採取預防措施，降低停機成本與安全風險。本資料集來自 UCI Machine Learning Repository（Matzka 2020），模擬真實工業感測資料。</p>
+<h2>資料說明</h2>
+<ul>
+<li>資料來源：UCI AI4I 2020 Predictive Maintenance Dataset（doi:10.24432/C5HS5C）</li>
+<li>樣本數：10,000 筆</li>
+<li>特徵：UDI、Product ID、Type、Air temperature、Process temperature、Rotational speed、Torque、Tool wear</li>
+<li>目標：Machine failure（二元），僅預測此一目標</li>
+<li>類別不平衡：故障率 3.39%（339/10000）</li>
+<li>失效模式：TWF、HDF、PWF、OSF、RNF（僅作 per-mode recall 分析，不個別建模）</li>
+</ul>
+<h2>研究方法</h2>
+<ol>
+<li><strong>前處理 Pipeline</strong>：使用 ColumnTransformer + FunctionTransformer 自動產生工程特徵（Temp diff、Power、Torque x Tool wear），並以 OneHotEncoder 處理 Type，StandardScaler 縮放數值特徵，防止資料洩漏。</li>
+<li><strong>不平衡策略</strong>：比較 none/class_weight/SMOTE（若無 imbalanced-learn 則自動跳過）。</li>
+<li><strong>模型比較</strong>：LogisticRegression、RandomForest、HistGradientBoosting（選配 XGBoost/LightGBM）。</li>
+<li><strong>閾值選擇</strong>：僅使用 5-fold Stratified OOF 預測，由 OOF 找出最佳閾值，測試集僅評估一次。</li>
+<li><strong>校準</strong>：以 OOF Brier score 決定是否使用 CalibratedClassifierCV（sigmoid），最終採用校準。</li>
+<li><strong>評估指標</strong>：PR-AUC 為主要指標，輔以 Recall/Precision/F1/MCC/Lift，並以 bootstrap 計算信賴區間。</li>
+</ol>
+<h2>實驗設計</h2>
+<ul>
+<li>切分：Stratified 80/20，random_state=42</li>
+<li>交叉驗證：5-fold StratifiedKFold（shuffle=True, random_state=42）</li>
+<li>閾值：僅由 OOF 決定</li>
+<li>穩健性：UDI 排序時間切分（前80% 訓練、後20% 測試）對照</li>
+</ul>
+<h2>結果</h2>
+<h3>模型比較</h3>
+<p>最佳模型：RandomForest（none 策略），經 sigmoid 校準。</p>
+<h3>測試集表現</h3>
+<table>
+<thead><tr><th>指標</th><th>數值</th></tr></thead>
+<tbody>
+<tr><td>PR-AUC</td><td>0.9008</td></tr>
+<tr><td>Precision</td><td>0.8788</td></tr>
+<tr><td>Recall</td><td>0.8529</td></tr>
+<tr><td>F1</td><td>0.8657</td></tr>
+<tr><td>MCC</td><td>0.8611</td></tr>
+<tr><td>Lift</td><td>25.85×</td></tr>
+<tr><td>混淆矩陣</td><td>TP=58 FP=8 FN=10 TN=1924</td></tr>
+</tbody></table>
+<h3>特徵重要度與誤判分析</h3>
+<p>詳見 <code>docs/evaluation_figures.md</code>、<code>results/ai4i_metrics.json</code>、<code>results/error_cases.csv</code>。主要缺口為 TWF（10/10 故障中僅抓到 2 筆），其餘可預測模式（HDF/PWF/OSF）測試集幾乎全抓。</p>
+<h3>時間切分穩健性</h3>
+<ul>
+<li>隨機切分 PR-AUC：0.9008</li>
+<li>UDI 時間切分 PR-AUC：0.8081</li>
+<li>差異：-0.0928</li>
+<li>結論：穩定：PR-AUC 差異 &lt;= 0.10，時間切分表現與隨機切分相近</li>
+</ul>
+<h2>討論</h2>
+<ol>
+<li><strong>洩漏防範</strong>：所有特徵工程在 Pipeline 內執行，測試集只用於最終評估一次，閾值僅由 OOF 決定。</li>
+<li><strong>不平衡處理</strong>：PR-AUC 優於 accuracy 作為主要指標；PR 更適合 3.4% 不平衡資料。</li>
+<li><strong>校準</strong>：採用 sigmoid 校準改善機率可靠性，使機率可用於成本決策。</li>
+<li><strong>RNF 上限</strong>：RNF 為隨機失效，幾乎不與 Machine failure 重疊，無法由感測特徵預測，不應視為模型缺陷。</li>
+<li><strong>穩健性</strong>：時間切分顯示模型在順序性變化下仍有合理表現。</li>
+</ol>
+<h2>結論與未來改進</h2>
+<p>結論：本方案達成預測性維護的實用目標，在極度不平衡情況下仍能以高 Precision 抓到多數故障，Lift 超過 25 倍。</p>
+<p>未來改進：</p>
+<ul>
+<li>加入更多領域特徵與交互項（尤其針對 TWF 漏檢）</li>
+<li>考慮成本敏感學習（根據誤報/漏報成本調整閾值）</li>
+<li>收集真實時間序列資料以更精確評估時間穩健性</li>
+<li>探索異常偵測輔助傳統監督學習</li>
+</ul>
+<h2>參考文獻</h2>
+<ul>
+<li>Matzka, S. (2020). AI4I 2020 Predictive Maintenance Dataset. UCI Machine Learning Repository. https://doi.org/10.24432/C5HS5C</li>
+<li>Saito, T., &amp; Rehmsmeier, M. (2015). The precision-recall plot is more informative than the ROC plot when evaluating binary classifiers on imbalanced datasets. PLoS ONE, 10(3).</li>
+</ul>
+</main>
+</body>
+</html>
