@@ -133,3 +133,47 @@ ESLint（`docs/`＋`scripts/`）總計 **5 個 error、0 個 warning**：
 - JS 重複率 0%；若把生成產物也算，4.37% 的重複全部可歸因於 `build_site.py` 樣板與共通頁首（建議有需求時在樣板層調整）。
 - 無死碼：3 個 JS 檔與所有函式均有實際使用點。
 - 追蹤事件單：#11（單一完整 issue；原 #12–#15 已整併進 #11）。
+
+## 修復紀錄（2026-10-23，Lab4 五項依序修復）
+
+> 修正範圍僅 `scripts/check_lint.mjs`（檢查工具腳本自身；`docs/` 前端程式與所有測試檔未動）。每項修復後先跑完整測試（pytest 131 ＋ node:test 4），全綠才進行下一項；修復不使用 eslint-disable、不改任何測試斷言。「警告數」＝ ESLint error 總數（修復前基準 5）。
+
+### 修復 1／5：`complexity`（原行號 151；Arrow function complexity 20 > 10）
+
+- **修了什麼**：knip `problems` 的 flatMap arrow 內含 9 段「清列表→push」迴圈，複雜度 20。改成宣告式對照表 `ISSUE_KIND_FIELDS`（8 個陣列欄位 → 種類字串 → 目標值抽法）＋ 新函式 `issueProblemItems()`；`enumMembers` 是物件鍵而非陣列，保留原樣走迴圈。呼叫端改為 `problems: issues.flatMap(issueProblemItems)`。行為逐一比對不變：同 9 種 kind 字串與 target 抽法（`devName`、`b.name`、`e.symbol`…）。
+- **警告數變化**：5 → **4**（complexity 歸零）
+- **測試數**：pytest **131 passed** ＋ node:test **4 passed**；`npm run check` 其餘指標不變（jscpd 0%、knip 未使用檔案 0／未使用匯出 0，knip `problems` 仍為 0）。
+
+### 修復 2／5：`max-depth`（原行號 71；try → if → for → for 嵌套 4 層 > 3）
+
+- **修了什麼**：ESLint 段落為 `try { if (existsSync) { for f { for m { … } } } }`，最深 4 層。把「解析報表 → 依規則計數 + findings 彙總」抽成頂層函式 `eslintSummary(results)`（含既有 `nl()`、`ROOT` 去前綴邏輯，行為不變）；呼叫端只剩 `if (existsSync) { summary.eslint = eslintSummary(...) }`。`.reports/summary.json` 的 `byRule / findings / errorCount` 結構逐一比對不變。
+- **警告數變化**：4 → **3**
+- **測試數**：pytest **131 passed** ＋ node:test **4 passed**；jscpd 0%、knip 死碼 0 不變。
+
+### 修復 3／5：`sonarjs/no-nested-template-literals`（原行號 174、189，共 2 處）
+
+- **修了什麼**：同 issue 的兩處「template literal 內再插一層 template literal」——knip 異常分支的 `${cond ? \`；輸出：…\` : ""}` 與彙總段的 `${others.map(→\`${k}=${v}\`)…}`。改法都是**先求值到區域變數再插值**：`knipDetail`、`otherText`。輸出字串內容逐字不變。
+- **警告數變化**：3 → **1**（no-nested-template-literals 歸零）
+- **測試數**：pytest **131 passed** ＋ node:test **4 passed**；jscpd 0%、knip 死碼 0 不變。
+
+### 修復 4／5：`sonarjs/no-os-command-from-path`（原行號 133；用 PATH 上的 `node` 啟動子行程）
+
+- **修了什麼**：knip 段落直接 `spawnSync("node", …)`（被規則標記），另兩處相同的 smell 一併修正：eslint、jscpd 都是「`"node"` 字串餵給 `run()` → `spawnSync(command, …)`」，子行程全走 PATH 查找。三處改為 `process.execPath`（目前 node 執行檔的絕對路徑，不經 PATH 解析）；eslint / jscpd binary 本已用 `path.join(ROOT, "node_modules", …)` 給定，knip 同。行為等價（同一個 node binary），工具仍正常產出三份報表。
+- **警告數變化**：1 → **0**
+- **測試數**：pytest **131 passed** ＋ node:test **4 passed**；`npm run check` 三段檢查在 `process.execPath` 下全部照常運作（eslint/jscpd/knip 報表都重新產生）。
+
+### 修復後總結（5 項全數完成）
+
+| 項次 | 規則（原行號 #12–#15 對應） | 改法摘要 | 警告數 |
+|---|---|---|---|
+| 1 | `complexity`（151） | 9 段 push 迴圈（8 個陣列欄位進對照表、enumMembers 字典鍵留迴圈）→ 對照表 `ISSUE_KIND_FIELDS` ＋ `issueProblemItems()` | 5→4 |
+| 2 | `max-depth`（71） | 彙總迴圈抽頂層函式 `eslintSummary()`，try/if 下不再疊 4 層 | 4→3 |
+| 3 | `no-nested-template-literals`（174、189） | 內層模板先求值入 `knipDetail`／`otherText` | 3→1 |
+| 4 | `no-os-command-from-path`（133） | 三處子行程 `"node"` → `process.execPath` | 1→0 |
+
+> 註：smell-report 分組表把 5 個 error 對應到 4 個 issue（#14 nested-template 一張單含 2 處），故「五項」以 5 個 error 計，實修為 4 個 issue、4 次提交式修復循環（每次循環含完整測試）。
+
+- **最終 ESLint：errors=0、warnings=0**（含門檻類 complexity / max-depth / max-lines-per-function / cognitive-complexity 全為 0）；jscpd 0%；knip 未使用檔案 0／匯出 0。
+- 全程未使用 eslint-disable、未修改任何測試（斷言原封不動），每項修復後完整測試全綠才繼續；`docs/` 前端程式零修改。
+- 本表記錄的「原行號」為修復前基準；第 1、2 項的中途行號位移屬正常（抽函式使檔案增長）。
+- HTML 版 `docs/reports/smell-report.html` 為 build_site 產物，本次未重建；修復紀錄以本檔為準。
