@@ -503,7 +503,7 @@ nav a:hover{ transform:translateY(-2px) rotate(-1.2deg); text-decoration:none; }
   position:relative;
   background:var(--card);
   border:2px solid var(--line);
-  border-radius:var(--wobbly);
+  border-radius:6px;
   padding:16px 18px 12px;
   box-shadow:3px 4px 0 rgba(163,128,90,.18);
 }
