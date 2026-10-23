@@ -124,7 +124,7 @@ python -m pytest tests -q               # 執行測試
 
 - [x] #4 資料取得、保存與 EDA
 - [x] #5 前處理與特徵工程 Pipeline（見 [`docs/features.md`](docs/features.md)）
-- [ ] #6 評估協定、指標與不平衡策略
+- [x] #6 評估協定、指標與不平衡策略（見 [`docs/evaluation_protocol.md`](docs/evaluation_protocol.md)）
 - [ ] #7 模型建立、比較與校準
 - [ ] #8 評估視覺化、可解釋性與誤判分析
 - [ ] #9 穩健性檢查：時間切分對照
