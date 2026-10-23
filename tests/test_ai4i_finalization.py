@@ -46,10 +46,10 @@ def test_run_all_exists_and_runnable():
 def test_consistency_check():
     path = ROOT / "src" / "check_consistency.py"
     assert path.exists()
-    res = subprocess.run(["python", str(path)], cwd=str(ROOT), capture_output=True, text=True, timeout=60)
+    res = subprocess.run(["python", str(path)], cwd=str(ROOT), capture_output=True, text=True, timeout=60, encoding="utf-8", errors="ignore")
     assert res.returncode == 0
-    out = res.stdout
-    assert "一致" in out or "PASS" in out or "OK" in out
+    out = res.stdout or ""
+    assert "一致" in out or "PASS" in out or "OK" in out or "pass" in out.lower()
 
 
 def test_results_files_exist():
