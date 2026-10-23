@@ -447,8 +447,8 @@ STYLE_CSS = r"""
   --green:#81b29a;
   --blue:#6d9dc5;
   --tape:#f9dcc4;
-  --wobbly: 18px 225px 255px 25px / 255px 25px 225px 18px;
-  --wobbly2: 255px 25px 225px 15px / 25px 225px 255px 25px;
+  --wobbly: 6px;
+  --wobbly2: 6px;
 }
 
 body{
