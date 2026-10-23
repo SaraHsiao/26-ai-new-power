@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["docs/**/*.js", "docs/**/*.mjs", "scripts/**/*.{js,mjs,cjs}", "tests/**/*.{js,mjs,cjs}"],
+  "project": ["docs/**/*.{js,mjs}", "scripts/**/*.{js,mjs,cjs}", "tests/**/*.{js,mjs,cjs}"],
+  "ignore": ["**/node_modules/**", "**/.reports/**"],
+  "ignoreBinaries": ["python", "uv", "alembic"],
+  "ignoreDependencies": ["ts-api-utils"]
+}

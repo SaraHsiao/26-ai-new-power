@@ -1,0 +1,22 @@
+{
+  "name": "ai-new-power",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Iris / AI4I 分析專案（瀏覽器端 docs/、Node 端 scripts/ 與 tests/）",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:json": "eslint . --format json --output-file .reports/eslint.json",
+    "dup": "jscpd",
+    "dead": "knip",
+    "check": "node scripts/check_lint.mjs",
+    "test": "node --test \"tests/*.test.mjs\""
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "eslint-plugin-sonarjs": "^3",
+    "globals": "^16",
+    "jscpd": "^4",
+    "knip": "^5",
+    "ts-api-utils": "^2.5.0"
+  }
+}

@@ -3,51 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>互動推論（僅前端）</title>
+  <title>互動推論（僅前端）— 手繪版</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
   <style>
-    body { font-family: sans-serif; max-width: 900px; margin: 20px auto; padding: 0 10px; }
-    .row { display: flex; gap: 20px; flex-wrap: wrap; }
-    .card { border: 1px solid #ccc; padding: 15px; flex: 1; min-width: 300px; }
-    label { display: block; margin: 6px 0; }
-    input, select { width: 200px; padding: 4px; }
-    button { margin-top: 10px; padding: 6px 12px; }
-    #result { border: 1px solid #999; padding: 15px; margin-top: 20px; background: #f9f9f9; }
+    :root{
+      --paper:#fbf3e4; --card:#fffdf7; --ink:#4a3b2a; --ink-soft:#8a755c;
+      --line:#a3805a; --line-soft:#d8c4a6; --red:#e07a5f; --yellow:#f2c14e;
+      --green:#81b29a; --blue:#6d9dc5; --tape:#f9dcc4;
+      --wobbly:6px; --wobbly2:6px;
+    }
+    body{
+      font-family:"Patrick Hand","LXGW WenKai TC","Segoe Print","Comic Sans MS","Microsoft JhengHei",sans-serif;
+      color:var(--ink);
+      background-color:var(--paper);
+      background-image:radial-gradient(#e6d6bb 1.1px, transparent 1.1px);
+      background-size:26px 26px;
+    }
+    .layout{ max-width:960px; margin:0 auto; padding:26px 18px 72px; }
+    header{ text-align:center; padding:8px 0 4px; }
+    h1{ font-size:1.7rem; margin:6px 0 4px; }
+    h1::after{ content:""; display:block; width:180px; height:7px; margin:6px auto 0;
+      background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='7' viewBox='0 0 72 7'%3E%3Cpath d='M2 4 Q 10 1.5 18 4 T 34 4 T 50 4 T 66 4 T 82 4' fill='none' stroke='%23e07a5f' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x; background-size:72px 7px; }
+    .muted{ color:var(--ink-soft); }
+    #status{ text-align:center; color:var(--ink-soft); font-size:.95rem; margin-top:6px; }
+    .row{ display:flex; gap:22px; flex-wrap:wrap; margin-top:22px; }
+    .card{
+      position:relative; flex:1; min-width:300px;
+      background:var(--card);
+      border:2px solid var(--line);
+      border-radius:var(--wobbly);
+      padding:18px 20px 16px;
+      box-shadow:3px 4px 0 rgba(163,128,90,.18);
+    }
+    .card:nth-child(1){ transform:rotate(-.6deg); }
+    .card:nth-child(2){ transform:rotate(.6deg); }
+    .card::before{
+      content:""; position:absolute; top:-10px; left:50%;
+      transform:translateX(-50%) rotate(-3deg);
+      width:66px; height:20px; background:var(--tape); opacity:.9;
+      border-left:1.5px dashed rgba(255,255,255,.75);
+      border-right:1.5px dashed rgba(255,255,255,.75);
+      border-radius:2px;
+    }
+    .card::after{ content:attr(data-emoji); position:absolute; top:8px; right:14px; font-size:1.4rem; }
+    h2{ font-size:1.25rem; margin:0 0 12px; }
+    label{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; font-size:1rem; }
+    input, select{
+      font:inherit; color:var(--ink);
+      width:170px; padding:6px 10px;
+      background:#fffef9;
+      border:2px dashed var(--line-soft);
+      border-radius:12px;
+      outline:none;
+    }
+    input:focus, select:focus{ border-color:var(--line); box-shadow:2px 2px 0 rgba(163,128,90,.2); }
+    button{
+      display:block; margin:16px auto 0;
+      font:inherit; font-size:1.05rem; color:var(--ink);
+      background:#ffe9b3;
+      border:2px solid var(--line);
+      border-radius:var(--wobbly2);
+      padding:8px 26px; cursor:pointer;
+      box-shadow:3px 4px 0 rgba(163,128,90,.25);
+      transition:transform .12s ease, box-shadow .12s ease;
+    }
+    button:hover{ transform:translateY(-2px) rotate(-1.5deg); background:#f9dda0; }
+    button:active{ transform:translateY(0); box-shadow:1px 2px 0 rgba(163,128,90,.25); }
+    #result{
+      margin-top:30px; padding:20px 22px;
+      background:var(--card);
+      border:2px solid var(--line);
+      border-radius:var(--wobbly2);
+      box-shadow:3px 4px 0 rgba(163,128,90,.18);
+      position:relative;
+    }
+    #result::before{
+      content:""; position:absolute; top:-10px; left:50%;
+      transform:translateX(-50%) rotate(2.5deg);
+      width:66px; height:20px; background:#cfe3d2; opacity:.9;
+      border-left:1.5px dashed rgba(255,255,255,.75);
+      border-right:1.5px dashed rgba(255,255,255,.75);
+      border-radius:2px;
+    }
+    #result h3{ margin:0 0 8px; }
+    #result ul{ margin:6px 0 0; padding-left:1.4em; }
+    footer{ text-align:center; margin-top:34px; color:var(--ink-soft); font-size:.95rem; }
+    a{ color:var(--red); text-decoration:underline wavy rgba(224,122,95,.55); text-underline-offset:3px; }
+    a:hover{ text-decoration:underline wavy var(--line); }
   </style>
 </head>
 <body>
-  <h1>互動推論（全部在前端完成）</h1>
-  <div id="status">loading...</div>
-  <div class="row">
-    <div class="card">
-      <h2>Iris 表單</h2>
-      <form id="irisForm">
-        <label>花萼長度 sepal_length: <input name="sl" type="number" step="any" value="5.1" required></label>
-        <label>花萼寬度 sepal_width: <input name="sw" type="number" step="any" value="3.5" required></label>
-        <label>花瓣長度 petal_length: <input name="pl" type="number" step="any" value="1.4" required></label>
-        <label>花瓣寬度 petal_width: <input name="pw" type="number" step="any" value="0.2" required></label>
-        <button type="submit">送出</button>
-      </form>
+  <div class="layout">
+    <header>
+      <svg viewBox="0 0 190 44" width="190" height="44" aria-hidden="true">
+        <g fill="none" stroke="#e8b04b" stroke-width="2" stroke-linecap="round">
+          <circle cx="22" cy="22" r="7"/>
+          <path d="M22 9v-6M22 35v6M9 22H3M35 22h6M13 13l-4-4M31 13l4-4M13 31l-4 4M31 31l4 4"/>
+        </g>
+        <g fill="none" stroke="#8aa9c4" stroke-width="2" stroke-linecap="round">
+          <circle cx="92" cy="22" r="9"/>
+          <path d="M92 9v-6M92 35v6M79 22h-6M105 22h6M82 12l-4-4M102 12l4-4M82 32l-4 4M102 32l4 4"/>
+          <circle cx="92" cy="22" r="3"/>
+        </g>
+        <g fill="none" stroke="#7fae8a" stroke-width="2" stroke-linecap="round">
+          <path d="M150 36c0-12 8-22 20-25-2 13-11 23-20 25z"/>
+          <path d="M150 36c-11-1-15-9-16-16 9 1 14 7 16 16z"/>
+        </g>
+      </svg>
+      <h1>始 🌷 互動推論 🌷 始</h1>
+      <p class="muted">按按看，模型就會告訴你答案 🍄 （全部都在你的瀏覽器裡運算）</p>
+    </header>
+    <div id="status">loading...</div>
+
+    <div class="row">
+      <div class="card" data-emoji="🌸">
+        <h2>Iris 小表單</h2>
+        <form id="irisForm">
+          <label>花萼長度 sepal_length: <input name="sl" type="number" step="any" value="5.1" required></label>
+          <label>花萼寬度 sepal_width: <input name="sw" type="number" step="any" value="3.5" required></label>
+          <label>花瓣長度 petal_length: <input name="pl" type="number" step="any" value="1.4" required></label>
+          <label>花瓣寬度 petal_width: <input name="pw" type="number" step="any" value="0.2" required></label>
+          <button type="submit">🌸 幫我預測！</button>
+        </form>
+      </div>
+
+      <div class="card" data-emoji="🔧">
+        <h2>AI4I大方表單</h2>
+        <form id="ai4iForm">
+          <label>空氣溫度 Air temperature [K]: <input name="air" type="number" step="any" value="298.1" required></label>
+          <label>製程溫度 Process temperature [K]: <input name="proc" type="number" step="any" value="308.6" required></label>
+          <label>轉速 Rotational speed [rpm]: <input name="rpm" type="number" step="any" value="1551" required></label>
+          <label>扭矩 Torque [Nm]: <input name="torque" type="number" step="any" value="42.8" required></label>
+          <label>刀具磨耗 Tool wear [min]: <input name="wear" type="number" step="any" value="0" required></label>
+          <label>產品等級 Type:
+            <select name="type">
+              <option value="L" selected>L</option>
+              <option value="M">M</option>
+              <option value="H">H</option>
+            </select>
+          </label>
+          <button type="submit">🔧 幫我評估！</button>
+        </form>
+      </div>
     </div>
-    <div class="card">
-      <h2>AI4I 表單</h2>
-      <form id="ai4iForm">
-        <label>空氣溫度 Air temperature [K]: <input name="air" type="number" step="any" value="298.1" required></label>
-        <label>製程溫度 Process temperature [K]: <input name="proc" type="number" step="any" value="308.6" required></label>
-        <label>轉速 Rotational speed [rpm]: <input name="rpm" type="number" step="any" value="1551" required></label>
-        <label>扭矩 Torque [Nm]: <input name="torque" type="number" step="any" value="42.8" required></label>
-        <label>刀具磨耗 Tool wear [min]: <input name="wear" type="number" step="any" value="0" required></label>
-        <label>產品等級 Type: 
-          <select name="type">
-            <option value="L">L</option>
-            <option value="M">M</option>
-            <option value="H">H</option>
-          </select>
-        </label>
-        <button type="submit">送出</button>
-      </form>
-    </div>
+
+    <div id="result">📋 結果顯示區 — 兩個表單共用</div>
+
+    <footer>🍀 全部計算都在你的瀏覽器內完成，沒有後端、沒有 API 呼叫。<br><a href="index.html">← 回首頁</a></footer>
   </div>
-  <div id="result">結果顯示區（兩個表單共用）</div>
   <script src="./app.js"></script>
 </body>
 </html>

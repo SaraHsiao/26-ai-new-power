@@ -1,0 +1,20 @@
+{
+  "threshold": 100,
+  "minTokens": 30,
+  "reporters": ["json"],
+  "output": ".reports/jscpd",
+  "formats": ["javascript"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/.reports/**",
+    "**/.venv/**",
+    "**/.next/**",
+    "**/*.py",
+    "**/*.html",
+    "**/*.json",
+    "**/*.css",
+    "**/*.md",
+    "**/figures/**",
+    "**/__pycache__/**"
+  ]
+}
