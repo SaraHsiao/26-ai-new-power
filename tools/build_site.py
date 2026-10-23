@@ -6,6 +6,8 @@
 3. docs/*.md                -> docs/reports/*.html    （純 Python Markdown 轉 HTML）
 4. 首頁 docs/index.html     （純 HTML + 原生 JS fetch results.json，無 framework、無 build）
 
+樣式主題：溫馨手繪風（暖色紙張背景、歪歪的卡片邊框、膠帶貼紙、手寫字體）。
+
 用法：python tools/build_site.py
 """
 
@@ -15,7 +17,6 @@ import html
 import json
 import re
 import shutil
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,6 +47,30 @@ MD_REPORTS = [
     "model_comparison.md",
     "evaluation_figures.md",
 ]
+
+# 圖表的友善名稱（抓不到就退回原檔名，不另外發明數字）
+FIGURE_LABELS = {
+    "ai4i_pr_curve.png": "AI4I PR 曲線",
+    "ai4i_roc_curve.png": "AI4I ROC 曲線",
+    "ai4i_confusion.png": "AI4I 混淆矩陣",
+    "ai4i_calibration.png": "AI4I 可靠性圖",
+    "ai4i_importance.png": "AI4I 特徵重要度",
+    "ai4i_physical.png": "AI4I 物理對照",
+    "ai4i_mode_recall.png": "AI4I 失效模式 recall",
+    "ai4i_time_split.png": "AI4I 時間切分對照",
+    "ai4i_eda_correlation.png": "AI4I EDA 相關性",
+    "ai4i_eda_modes.png": "AI4I EDA 失效模式",
+    "ai4i_eda_physical.png": "AI4I EDA 物理量",
+    "ai4i_eda_target.png": "AI4I EDA 目標",
+    "ai4i_eda_type.png": "AI4I EDA Type",
+    "eda_boxplots.png": "Iris EDA 箱型圖",
+    "eda_distributions.png": "Iris EDA 分布",
+    "nn_training_curves.png": "Iris NN 訓練曲線",
+    "nn_confusion_matrix.png": "Iris NN 混淆矩陣",
+    "nn_f1_scores.png": "Iris NN F1",
+    "pca_3d.png": "Iris PCA 3D",
+    "pca_variance.png": "Iris PCA 變異量",
+}
 
 NA = "—"
 
@@ -91,7 +116,6 @@ def md_inline(text: str) -> str:
     text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"(?<!\w)\*([^*\n]+)\*(?!\w)", r"<em>\1</em>", text)
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
-    text = re.sub(r"`", r"`", text)
     return text
 
 
@@ -211,6 +235,9 @@ HTML_SHELL = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../style.css">
 </head>
 <body>
@@ -249,10 +276,11 @@ def build_index(figures: list[str], reports: list[dict]) -> None:
     index_path.write_text(INDEX_HTML, encoding="utf-8")
 
     titles = {r["html"]: r["title"] for r in reports}
+    figs = [{"file": f, "label": FIGURE_LABELS.get(f, f)} for f in figures]
     site_js = DOCS / "site.js"
     site_js.write_text(
         "const REPORT_TITLES = " + json.dumps(titles, ensure_ascii=False) + ";\n"
-        "const FIGURES = " + json.dumps(figures, ensure_ascii=False) + ";\n",
+        "const FIGURES = " + json.dumps(figs, ensure_ascii=False) + ";\n",
         encoding="utf-8",
     )
     print(f"[site] 產生 {index_path} 與 {site_js}（首頁僅 render，資料全部來自 results.json）")
@@ -263,35 +291,51 @@ INDEX_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Iris × AI4I 2020 - 靜態結果網站</title>
+<title>Iris × AI4I 2020 — 手工小站</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<style>
-.layout{max-width:960px;margin:0 auto;padding:0 16px 64px;}
-</style>
 </head>
 <body>
 <div class="layout">
 <header>
-<h1>Iris × AI4I 2020 — 既有結果靜態展示</h1>
-<p class="muted">純 HTML + 原生 JavaScript 讀取 results.json 顯示；不訓練、不重算，所有數字皆來自 results/ 下的既有輸出。
+<svg class="doodles" viewBox="0 0 190 44" width="190" height="44" aria-hidden="true">
+  <g fill="none" stroke="#e8b04b" stroke-width="2" stroke-linecap="round">
+    <circle cx="22" cy="22" r="7"/>
+    <path d="M22 9v-6M22 35v6M9 22H3M35 22h6M13 13l-4-4M31 13l4-4M13 31l-4 4M31 31l4 4"/>
+  </g>
+  <g fill="none" stroke="#8aa9c4" stroke-width="2" stroke-linecap="round">
+    <circle cx="92" cy="22" r="9"/>
+    <path d="M92 9v-6M92 35v6M79 22h-6M105 22h6M82 12l-4-4M102 12l4-4M82 32l-4 4M102 32l4 4"/>
+    <circle cx="92" cy="22" r="3"/>
+  </g>
+  <g fill="none" stroke="#7fae8a" stroke-width="2" stroke-linecap="round">
+    <path d="M150 36c0-12 8-22 20-25-2 13-11 23-20 25z"/>
+    <path d="M150 36c-11-1-15-9-16-16 9 1 14 7 16 16z"/>
+  </g>
+</svg>
+<h1>🌷 Iris × AI4I 2020<br>手工小站</h1>
+<p class="muted">純 HTML ＋ 原生 JavaScript 讀取 results.json 顯示；不訓練、不重算，
+所有數字皆來自 results/ 下的既有輸出。✋ 全部由 tools/build_site.py 逐檔搬運。
 <span id="generatedAt"></span></p>
 <nav>
-<a href="inference.html">互動推論表單</a> ·
-<a href="reports/iris-nn-paper.html">小論文</a> ·
-<a href="reports/model_comparison.html">模型比較</a> ·
-<a href="reports/evaluation_figures.html">評估圖表說明</a>
+<a href="inference.html">✏️ 互動推論表單</a>
+<a href="reports/ai4i-report.html">📖 期末報告</a>
+<a href="reports/model_comparison.html">🧮 模型比較</a>
+<a href="reports/evaluation_figures.html">🖼 圖表說明</a>
 </nav>
 </header>
 
 <section id="content" aria-live="polite"><p class="muted">載入 results.json …</p></section>
 
 <section>
-<h2>報告（由 docs/*.md 轉成）</h2>
+<h2>📚 報告（由 docs/*.md 轉成）</h2>
 <ul id="reportLinks" class="links"></ul>
 </section>
 
 <section>
-<h2>圖表（自 figures/ 原檔複製）</h2>
+<h2>🖼 圖表（自 figures/ 原檔複製）</h2>
 <div id="figGrid" class="fig-grid"></div>
 </section>
 </div>
@@ -301,7 +345,7 @@ const fmt = (v, d = 4) => (v == null ? "—" : (typeof v === "number" ? Number(v
 
 function card(title, rows) {
   return `<div class="kpi"><h3>${title}</h3>` + rows.map(
-    ([k, v]) => `<div class="row"><span>${k}</span><strong>${v}</strong></div>`
+    ([k, v]) => `<div class="row"><span>${k}</span><span class="dots"></span><strong>${v}</strong></div>`
   ).join("") + "</div>";
 }
 
@@ -322,24 +366,24 @@ async function main() {
   const src = data._sources || {};
 
   const irisHtml = [
-    card("Iris NN", [
+    card("🌸 Iris 模型", [
       ["測試 accuracy", fmt(nn.test_accuracy)],
       ["CV accuracy", `${fmt(nn.cv_accuracy_mean)} ± ${fmt(nn.cv_accuracy_std)}`],
       ["epochs", nn.epochs_run ?? "—"],
     ]),
-    card("Iris PCA", [
+    card("🌿 Iris PCA", [
       ["第 1 主成分", fmt((pca.explained_variance_ratio || [])[0])],
       ["第 3 主成分累積", fmt((pca.cumulative_ratio || [])[2])],
     ]),
   ];
 
   const ai4iHtml = [
-    card("AI4I 模型", [
+    card("🔧 AI4I 模型", [
       ["最佳模型", `${best.model ?? "—"}（${best.strategy ?? "—"}）`],
       ["OOF PR-AUC", fmt(best.pr_auc_oof)],
       ["閾值（OOF）", fmt(best.threshold)],
     ]),
-    card("AI4I 測試集", [
+    card("🧪 AI4I 測試集", [
       ["PR-AUC", fmt(test.pr_auc)],
       ["Precision", fmt(test.precision)],
       ["Recall", fmt(test.recall)],
@@ -347,7 +391,7 @@ async function main() {
       ["ROC-AUC", fmt(ev.curves && ev.curves.roc_auc)],
       ["Brier", fmt(ev.calibration && ev.calibration.brier)],
     ]),
-    card("時間切分對照", [
+    card("⏳ 時間切分對照", [
       ["time-split PR-AUC", fmt(ts.time_split && ts.time_split.pr_auc)],
       ["PR-AUC 差異", fmt(ts.differences && ts.differences.pr_auc_diff)],
       ["結論", ts.verdict ?? "—"],
@@ -355,24 +399,25 @@ async function main() {
   ];
 
   document.getElementById("content").innerHTML = `
-    <section><h2>結果摘要</h2>
+    <section><h2>🌸結果摘要</h2>
       <div class="grid">${irisHtml.join("")}</div>
     </section>
-    <section><h2>AI4I 2020（隨機森林 + sigmoid 校準）</h2>
+    <section><h2>🔧 AI4I 2020（隨機森林 ＋ sigmoid 校準）</h2>
       <div class="grid">${ai4iHtml.join("")}</div>
     </section>
-    <section><h2>數字來源</h2>
-      <ul>${Object.entries(src || {}).map(
+    <section><h2>🔗 數字的來源</h2>
+      <ul class="links">${Object.entries(src || {}).map(
         ([k, v]) => `<li><code>${k}</code> ← <code>${v}</code></li>`).join("")}</ul>
     </section>`;
 
   document.getElementById("reportLinks").innerHTML =
     (typeof REPORT_TITLES !== "undefined" ? Object.entries(REPORT_TITLES) : [])
-      .map(([file, title]) => `<li><a href="${file}">${title}</a></li>`).join("");
+      .map(([file, title]) => `<li><a href="${file}">📄 ${title}</a></li>`).join("");
 
-  document.getElementById("figGrid").innerHTML = (typeof FIGURES !== "undefined" ? FIGURES : [])
-    .map(name => `<figure><img loading="lazy" src="figures/${name}" alt="${name}"><figcaption>${name}</figcaption></figure>`)
-    .join("");
+  document.getElementById("figGrid").innerHTML =
+    (typeof FIGURES !== "undefined" ? FIGURES : [])
+      .map(f => `<figure><img loading="lazy" src="figures/${f.file}" alt="${f.file}"><figcaption>${f.label}<br><span class="fname">${f.file}</span></figcaption></figure>`)
+      .join("");
 }
 
 main().catch(err => {
@@ -385,39 +430,211 @@ main().catch(err => {
 """
 
 
-STYLE_CSS = r""":root { color-scheme: light; }
-body { font-family: system-ui, "Microsoft JhengHei", sans-serif; margin: 0;
-       background: #f7f8fa; color: #22303f; }
-a { color: #1a6fd4; }
-.muted { color: #68788c; }
-header { padding: 24px 0 12px; }
-h1 { font-size: 1.5rem; margin: 0 0 4px; }
-h2 { font-size: 1.15rem; margin: 24px 0 12px; }
-section { margin-bottom: 28px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
-.kpi { background: #fff; border: 1px solid #e2e7ee; border-radius: 10px; padding: 14px 16px; }
-.kpi h3 { margin: 0 0 8px; font-size: 0.95rem; }
-.row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 0.92rem; }
-.row strong { font-variant-numeric: tabular-nums; }
-.links li { margin: 3px 0; }
-.fig-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.fig-grid figure { margin: 0; background: #fff; border: 1px solid #e2e7ee; border-radius: 10px; padding: 10px; }
-.fig-grid img { width: 100%; height: auto; border-radius: 6px; }
-.fig-grid figcaption { font-size: 0.8rem; color: #68788c; margin-top: 6px; word-break: break-all; }
-nav { margin: 10px 0 4px; font-size: 0.95rem; }
-.err { color: #b3261e; }
+STYLE_CSS = r"""
+/* ============================================================
+   溫馨手繪風 · warm hand-drawn theme
+   暖色紙張 ─ 歪歪的邊框 ─ 膠帶貼紙 ─ 手寫字體
+   ============================================================ */
+:root{
+  --paper:#fbf3e4;
+  --card:#fffdf7;
+  --ink:#4a3b2a;
+  --ink-soft:#8a755c;
+  --line:#a3805a;
+  --line-soft:#d8c4a6;
+  --red:#e07a5f;
+  --yellow:#f2c14e;
+  --green:#81b29a;
+  --blue:#6d9dc5;
+  --tape:#f9dcc4;
+  --wobbly: 18px 225px 255px 25px / 255px 25px 225px 18px;
+  --wobbly2: 255px 25px 225px 15px / 25px 225px 255px 25px;
+}
 
-/* 報告頁 */
-main.report { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
-main.report h1 { font-size: 1.45rem; }
-table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; }
-th, td { border: 1px solid #dde3ea; padding: 6px 10px; font-size: 0.9rem; text-align: left; }
-th { background: #eef3f9; }
-code { background: #eef1f5; padding: 1px 5px; border-radius: 4px; font-size: 0.88em; }
-pre code { display: block; padding: 10px; overflow-x: auto; }
-blockquote { border-left: 4px solid #c9d6e6; margin: 10px 0; padding: 4px 14px; color: #47586d; background: #fff; }
-img { max-width: 100%; }
-.crumb { margin-bottom: 18px; }
+body{
+  font-family:"Patrick Hand","LXGW WenKai TC","Segoe Print","Comic Sans MS","Microsoft JhengHei",sans-serif;
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:radial-gradient(#e6d6bb 1.1px, transparent 1.1px);
+  background-size:26px 26px;
+  margin:0;
+  line-height:1.6;
+}
+
+a{ color:var(--red); text-decoration:underline wavy rgba(224,122,95,.55); text-underline-offset:3px; }
+a:hover{ text-decoration:underline wavy var(--line); filter:brightness(.95); }
+
+h1, h2, h3{ font-weight:600; line-height:1.3; }
+h1{ font-size:1.7rem; margin:6px 0 4px; }
+h2{ font-size:1.3rem; margin:28px 0 14px; }
+h3{ font-size:1.05rem; margin:0 0 8px; }
+
+h1::after, h2::after{
+  content:"";
+  display:block;
+  height:7px;
+  margin-top:6px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='7' viewBox='0 0 72 7'%3E%3Cpath d='M2 4 Q 10 1.5 18 4 T 34 4 T 50 4 T 66 4 T 82 4' fill='none' stroke='%23e07a5f' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x;
+  background-size:72px 7px;
+}
+.muted{ color:var(--ink-soft); font-size:.95rem; }
+
+/* ---------- 首頁 ---------- */
+.layout{ max-width:960px; margin:0 auto; padding:26px 18px 72px; }
+header{ text-align:center; padding:8px 0 4px; }
+.doodles{ display:block; margin:0 auto 4px; }
+nav{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:14px 0 4px; }
+nav a{
+  font-size:1rem;
+  color:var(--ink);
+  background:var(--card);
+  border:2px solid var(--line);
+  border-radius:var(--wobbly2);
+  padding:6px 16px;
+  text-decoration:none;
+  box-shadow:2px 3px 0 rgba(163,128,90,.22);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+nav a:hover{ transform:translateY(-2px) rotate(-1.2deg); text-decoration:none; }
+
+.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px; }
+
+.kpi{
+  position:relative;
+  background:var(--card);
+  border:2px solid var(--line);
+  border-radius:var(--wobbly);
+  padding:16px 18px 12px;
+  box-shadow:3px 4px 0 rgba(163,128,90,.18);
+}
+.kpi:nth-child(odd){ transform:rotate(-.7deg); }
+.kpi:nth-child(even){ transform:rotate(.7deg); }
+
+.kpi::before, .fig-grid figure::before{
+  content:"";
+  position:absolute;
+  top:-10px; left:50%;
+  transform:translateX(-50%) rotate(-3deg);
+  width:66px; height:20px;
+  background:var(--tape);
+  opacity:.9;
+  border-left:1.5px dashed rgba(255,255,255,.75);
+  border-right:1.5px dashed rgba(255,255,255,.75);
+  border-radius:2px;
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+}
+.kpi:nth-child(4n+2)::before{ background:#cfe3d2; }
+.kpi:nth-child(4n+3)::before{ background:#fde2b8; }
+.kpi:nth-child(4n+4)::before{ background:#d6e3f5; }
+
+.kpi h3{ border-bottom:1.5px dashed var(--line-soft); padding-bottom:6px; }
+.row{ display:flex; align-items:baseline; gap:8px; padding:3.5px 0; font-size:.98rem; }
+.row span{ color:var(--ink-soft); flex:0 0 auto; }
+.row .dots{ flex:1 1 auto; border-bottom:2px dotted var(--line-soft); transform:translateY(-3px); }
+.row strong{ color:var(--ink); font-variant-numeric:tabular-nums; flex:0 0 auto; }
+
+.links{ margin:6px 0 0; padding-left:0; list-style:none; }
+.links li{ padding:3px 0; }
+.links li::before{ content:"✏️ "; }
+.links code{
+  background:transparent;
+  padding:0 2px;
+  font-family:inherit;
+  font-size:.95em;
+  color:#7b6a54;
+}
+.links li:nth-child(even){ transform:rotate(.35deg); }
+.links li:nth-child(odd){ transform:rotate(-.3deg); }
+
+.err{ color:var(--red); font-size:1.05rem; }
+
+/* ---------- 圖表貼紙 ---------- */
+.fig-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:22px; }
+.fig-grid figure{
+  position:relative;
+  margin:10px 0 0;
+  background:var(--card);
+  border:2px solid var(--line);
+  border-radius:var(--wobbly2);
+  padding:12px 12px 10px;
+  box-shadow:3px 4px 0 rgba(163,128,90,.18);
+}
+.fig-grid figure:nth-child(odd){ transform:rotate(-.8deg); }
+.fig-grid figure:nth-child(even){ transform:rotate(.8deg); }
+.fig-grid img{ width:100%; height:auto; border-radius:10px; }
+.fig-grid figcaption{
+  border-top:1.5px dashed var(--line-soft);
+  margin-top:10px; padding-top:6px;
+  font-size:.92rem; text-align:center;
+}
+.fig-grid .fname{ display:block; font-size:.8rem; color:var(--ink-soft); }
+
+/* ---------- 報告頁 ---------- */
+main.report{ max-width:840px; margin:0 auto; padding:26px 18px 80px; }
+.crumb{ font-size:1rem; margin:0 0 20px; }
+
+main.report img{
+  background:#fff;
+  border:2px solid var(--line-soft);
+  border-radius:14px;
+  padding:6px;
+  box-shadow:2px 3px 0 rgba(163,128,90,.15);
+  max-width:100%;
+  height:auto;
+}
+main.report h1{ font-size:1.55rem; }
+
+table{
+  border-collapse:separate;
+  border-spacing:0;
+  width:100%;
+  margin:12px 0;
+  background:var(--card);
+  border:2px dashed var(--line-soft);
+  border-radius:14px;
+  overflow:hidden;
+}
+th, td{
+  padding:7px 12px;
+  border-bottom:1.5px dashed #ecdfca;
+  font-size:.96rem;
+  text-align:left;
+  font-variant-numeric:tabular-nums;
+}
+tr:last-child td{ border-bottom:none; }
+th{ background:#f6ead2; font-weight:600; }
+
+@media (max-width:720px){
+  .report table, table{ display:block; overflow-x:auto; }
+}
+
+code{
+  background:#f3e8d2;
+  padding:1px 7px;
+  border-radius:8px;
+  font-size:.9em;
+}
+pre code{
+  display:block;
+  padding:12px 14px;
+  overflow-x:auto;
+  background:#f3e8d2;
+  border:1.5px dashed var(--line-soft);
+  border-radius:12px;
+}
+blockquote{
+  position:relative;
+  border-left:6px solid var(--yellow);
+  background:#fdf6e0;
+  border-radius:10px;
+  margin:12px 0;
+  padding:10px 16px;
+  color:#5c4c39;
+}
+hr{ border:none; border-top:2px dashed var(--line-soft); margin:22px 0; }
+
+ul, ol{ padding-left:1.5em; }
+li{ margin:3px 0; }
 """
 
 
@@ -427,7 +644,7 @@ def main() -> None:
     reports = convert_reports()
     build_index(figures, reports)
     (DOCS / "style.css").write_text(STYLE_CSS, encoding="utf-8")
-    print("[site] 完成：docs/figure 複製、results.json、reports/*.html、index.html、style.css")
+    print("[site] 完成：figures 複製、results.json、reports/*.html、index.html、style.css")
 
 
 if __name__ == "__main__":
