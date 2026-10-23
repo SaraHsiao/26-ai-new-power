@@ -144,6 +144,14 @@ def test_readme_documents_source_and_license():
     assert "archive.ics.uci.edu" in readme
 
 
+def test_readme_type_failure_rates_match_data():
+    """README 的 Type 故障率必須與資料一致（避免文件漂移）。"""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    checks = prep.validate_dataset(prep.load_raw())
+    for rate in checks["failure_rate_by_type"].values():
+        assert f"{rate:.2%}" in readme
+
+
 # ---------- 報告與圖表 ----------
 
 def test_report_contains_key_numbers():

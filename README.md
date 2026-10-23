@@ -125,7 +125,7 @@ python -m pytest tests -q               # 執行測試
 - [x] #4 資料取得、保存與 EDA
 - [x] #5 前處理與特徵工程 Pipeline（見 [`docs/features.md`](docs/features.md)）
 - [x] #6 評估協定、指標與不平衡策略（見 [`docs/evaluation_protocol.md`](docs/evaluation_protocol.md)）
-- [ ] #7 模型建立、比較與校準
+- [x] #7 模型建立、比較與校準（見 [`docs/model_comparison.md`](docs/model_comparison.md)）
 - [ ] #8 評估視覺化、可解釋性與誤判分析
 - [ ] #9 穩健性檢查：時間切分對照
 - [ ] #10 報告撰寫與交付整備
@@ -136,5 +136,22 @@ python -m pytest tests -q               # 執行測試
 - 故障 **339 筆（3.39%）**，屬極度不平衡；全猜正常即有 **96.61%** accuracy。
 - 五種失效模式：HDF 115、OSF 98、PWF 95、TWF 46、RNF 19。
 - **標籤並非等價**：9 筆有故障但五旗標全 0；18 筆旗標為 1 但 `Machine failure` = 0。
-- `Type` 故障率：L 3.09%、M 3.38%、H 4.89%，具預測價值。
+- `Type` 故障率：**L 3.92% > M 2.77% > H 2.09%**（非單調，H 反而最低），仍具預測價值。
 - 完整內容見 [`docs/eda_report_ai4i.md`](docs/eda_report_ai4i.md)。
+
+## 模型比較結果（#7）
+
+在訓練集上以 5-fold OOF 比較 4 個模型 × 2 種不平衡策略，閾值只由 OOF 決定；
+測試集僅在模型定案後評估**一次**。
+
+| 項目 | 數值 |
+| --- | --- |
+| 最佳模型 | RandomForest（`n_estimators=150`, `max_depth=8`, `min_samples_leaf=4`） |
+| OOF PR-AUC | **0.9016**（95% CI 0.8715 – 0.9310） |
+| 測試集 PR-AUC | **0.9008**（95% CI 0.8323 – 0.9552） |
+| 測試集 Precision / Recall | **0.879 / 0.853** |
+| Lift | **25.85×** |
+| 機率校準 | sigmoid，Brier 0.0073 → 0.0071（採用） |
+
+完整比較表、校準前後差異與限制見 [`docs/model_comparison.md`](docs/model_comparison.md)，
+原始數字見 `results/model_comparison.json`、`results/test_metrics.json`。
